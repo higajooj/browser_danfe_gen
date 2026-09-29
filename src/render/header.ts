@@ -141,7 +141,7 @@ export function renderHeader(nfe: Nfe, ctx: Ctx, opts: DanfeOptions, folha: numb
     renderEmitente(nfe, ctx, opts),
     renderDanfeBox(nfe, ctx, folha, folhas),
     box(HEADER.barcode, 'bc', svg, ctx),
-    field(HEADER.chave, 'Chave de acesso', groupChave(nfe.chave), ctx, { bold: true, align: 'center', minPt: 7 }),
+    field(HEADER.chave, 'Chave de acesso', groupChave(nfe.chave), ctx, { bold: true, align: 'center', minPt: ctx.font === 'courier' ? 6.5 : 7 }),
     renderVariable(nfe, ctx, opts),
     field(HEADER.natureza, 'Natureza da operação', nfe.ide.natOp, ctx),
     field(HEADER.ie, 'Inscrição estadual', ie(nfe.emit.IE), ctx),

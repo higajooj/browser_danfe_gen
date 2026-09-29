@@ -31,7 +31,7 @@ body { font-family: ${FAMILIES[font]}; font-size: 10pt; color: #000; background:
 .c { text-align: center }
 .bold { font-weight: bold }
 .cut { position: absolute; left: 0.25cm; width: 20.57cm; height: 0; border-top: 0.5pt dashed #000 }
-.txt6 { font-size: 6pt; line-height: 1.25; padding: 0.05cm 0.08cm; white-space: nowrap }
+.txt6 { font-size: 6pt; line-height: 1.15; padding: 0.03cm 0.08cm; white-space: nowrap }
 .canh-nfe { text-align: center; font-weight: bold; padding-top: 0.1cm }
 .canh-nfe .n { font-size: 10pt; line-height: 1.3 }
 .emit { display: flex; height: 100%; align-items: center }
@@ -58,6 +58,6 @@ body { font-family: ${FAMILIES[font]}; font-size: 10pt; color: #000; background:
 .q .row > div.r { text-align: right }
 .q .row.last { border-bottom: var(--bw) dashed #666 }
 .wm { position: absolute; left: 0; right: 0; top: 11cm; text-align: center; transform: rotate(-35deg); font-size: 64pt; font-weight: bold; color: rgba(0,0,0,.09); white-space: nowrap; pointer-events: none }
-.cont { font-weight: bold }
+${font === 'courier' ? '.dnf .num, .dnf .num small { font-size: 7.5pt }' : ''}
 `
 }

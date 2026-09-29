@@ -88,6 +88,8 @@ export function paginate<T>(input: PaginationInput<T>): Pagination<T> {
     }
     last.infLines = infRest.slice(0, room)
     infRest = infRest.slice(room)
+    // A sheet holds at most one continuation box: anything left starts on a new sheet.
+    if (infRest.length > 0) pages.push({ folha: pages.length + 1, lines: [], infLines: [] })
   }
 
   return {
