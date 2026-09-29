@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>DANFE playground</title>
+  <style>
+    body { margin: 0; font: 14px system-ui, sans-serif; display: flex; flex-direction: column; height: 100vh }
+    header { display: flex; gap: 12px; align-items: center; padding: 8px 12px; border-bottom: 1px solid #ccc }
+    #err { color: #b00020 }
+    iframe { flex: 1; border: 0; width: 100% }
+  </style>
+</head>
+<body>
+  <header>
+    <label>NF-e XML: <input id="file" type="file" accept=".xml,text/xml,application/xml"></label>
+    <label>Fonte: <select id="font"><option value="times">Times New Roman</option><option value="courier">Courier New</option></select></label>
+    <button id="print" disabled>Imprimir</button>
+    <span id="err"></span>
+  </header>
+  <iframe id="preview" title="DANFE"></iframe>
+  <script type="module">
+    import { generateDanfeHtml, printDanfe } from '../src/index.ts'
+
+    const $ = (id) => document.getElementById(id)
+    let xml = ''
+    let html = ''
+
+    function render() {
+      $('err').textContent = ''
+      $('print').disabled = true
+      if (!xml) return
+      try {
+        html = generateDanfeHtml(xml, { fontFamily: $('font').value })
+        $('preview').srcdoc = html
+        $('print').disabled = false
+      } catch (e) {
+        $('err').textContent = e.message
+      }
+    }
+
+    $('file').addEventListener('change', async (ev) => {
+      const f = ev.target.files[0]
+      xml = f ? await f.text() : ''
+      render()
+    })
+    $('font').addEventListener('change', render)
+    $('print').addEventListener('click', () => printDanfe(html))
+  </script>
+</body>
+</html>
