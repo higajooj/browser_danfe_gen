@@ -34,7 +34,8 @@ absolutely positioned in centimetres, so any scaling ("fit to page") changes the
 ## What is implemented (v1: A4 portrait, folhas soltas – Anexo III.02)
 
 * Canhoto, identification block, DANFE box, CODE-128C barcode of the chave (own encoder, checked against the
-  worked example of chapter 2), chave in 11 blocks of 4, natureza, IE/IEST/CNPJ, destinatário, fatura/duplicatas,
+  worked example of chapter 2; a chave with an alphanumeric CNPJ switches to the set A for the letters, as NT
+  conjunta DFe 2025.001 asks), chave in 11 blocks of 4, natureza, IE/IEST/CNPJ, destinatário, fatura/duplicatas,
   cálculo do imposto, transportador/volumes, dados dos produtos, ISSQN, dados adicionais, reservado ao fisco.
   Boxes use the sizes and positions of table 3.8.1 (laser columns).
 * Multiple sheets (3.5): identification block repeated with `FOLHA n/N`, item table continued with the same

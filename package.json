@@ -1,6 +1,6 @@
 {
   "name": "browser-danfe-gen",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Generate NF-e DANFE as printable HTML, entirely in the browser.",
   "keywords": ["danfe", "nfe", "nf-e", "nota-fiscal", "sefaz", "brazil", "browser", "html", "print"],
   "author": "Daniel Higa",

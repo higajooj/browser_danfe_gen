@@ -1,6 +1,7 @@
 /**
- * CODE-128C encoder as described in MOC 7.0 Anexo II, chapter 2 and Anexo III.01.
- * Patterns are bar/space module widths (B S B S B S), stop has 7 entries.
+ * CODE-128C encoder as described in MOC 7.0 Anexo II, chapter 2 and Anexo III.01, and the
+ * hybrid of the sets C and A that NT conjunta DFe 2025.001 (section 6) asks of a chave with
+ * an alphanumeric CNPJ. Patterns are bar/space module widths (B S B S B S), stop has 7 entries.
  */
 const PATTERNS = [
   '212222', '222122', '222221', '121223', '121322', '131222', '122213', '122312', '132212', '221213',
@@ -17,6 +18,9 @@ const PATTERNS = [
 ]
 const STOP = '2331112'
 const START_C = 105
+/** Switches from the set C to the set A, and back. */
+const CODE_A = 101
+const CODE_C = 99
 
 /** Modules of a full symbol for N digit pairs: start(11) + pairs*11 + check(11) + stop(13). */
 export function symbolModules(digitCount: number): number {
@@ -33,7 +37,7 @@ export function checkDigit(values: number[]): number {
 }
 
 export interface Code128C {
-  /** Symbol values of the data pairs (no start/check/stop). */
+  /** Symbol values of the data, with the switches between sets (no start/check/stop). */
   values: number[]
   check: number
   /** Alternating bar/space module widths for the whole symbol, starting with a bar. */
@@ -52,6 +56,45 @@ export function encodeCode128C(data: string): Code128C {
   return { values, check, widths }
 }
 
+/** Symbol values of the set A for a digit or an upper-case letter: its ASCII code less 32. */
+function valueA(char: string): number {
+  if (!/^[0-9A-Z]$/.test(char)) throw new Error('CODE-128 data must be digits and upper-case letters')
+  return char.charCodeAt(0) - 32
+}
+
+/**
+ * Digits and upper-case letters, starting in the set C: pairs of digits take one symbol
+ * there, and anything else switches to the set A, one symbol a character, until an even
+ * run of digits is left to go back to C with. All-numeric data of even length encodes as
+ * plain CODE-128C. The check digit weighs the switches like any other symbol.
+ */
+export function encodeCode128(data: string): Code128C {
+  const values: number[] = []
+  let inC = true
+  let i = 0
+  while (i < data.length) {
+    const run = /^\d*/.exec(data.slice(i))![0].length
+    if (inC) {
+      if (run >= 2) {
+        values.push(Number(data.slice(i, i + 2)))
+        i += 2
+      } else {
+        values.push(CODE_A)
+        inC = false
+      }
+    } else if (run >= 2 && run % 2 === 0) {
+      values.push(CODE_C)
+      inC = true
+    } else {
+      values.push(valueA(data.charAt(i)))
+      i += 1
+    }
+  }
+  const check = checkDigit(values)
+  const seq = [PATTERNS[START_C], ...values.map((v) => PATTERNS[v]), PATTERNS[check], STOP]
+  return { values, check, widths: seq.join('').split('').map(Number) }
+}
+
 export interface BarcodeSvgOptions {
   /** Total width of the SVG in cm (includes the quiet zones). */
   widthCm: number
@@ -64,7 +107,7 @@ export interface BarcodeSvgOptions {
 
 /** Inline SVG. One <path> for all bars so print output stays crisp and small. */
 export function barcodeSvg(data: string, opts: BarcodeSvgOptions): string {
-  const { widths } = encodeCode128C(data)
+  const { widths } = encodeCode128(data)
   const quiet = opts.quietModules ?? 10
   const total = widths.reduce((a, b) => a + b, 0)
   let x = quiet

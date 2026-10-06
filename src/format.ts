@@ -1,7 +1,9 @@
 const digits = (s: string) => s.replace(/\D/g, '')
+/** Digits and letters: a CNPJ may carry letters (NT conjunta DFe 2025.001), and so may a chave. */
+const alnum = (s: string) => s.replace(/[^0-9A-Za-z]/g, '').toUpperCase()
 
 export function maskCnpj(v: string): string {
-  const d = digits(v)
+  const d = alnum(v)
   if (d.length !== 14) return v
   return `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5, 8)}/${d.slice(8, 12)}-${d.slice(12)}`
 }
@@ -14,8 +16,8 @@ export function maskCpf(v: string): string {
 
 /** CNPJ or CPF, depending on length. */
 export function maskDoc(v: string): string {
-  const d = digits(v)
-  return d.length === 11 ? maskCpf(d) : maskCnpj(d)
+  const d = alnum(v)
+  return /^\d{11}$/.test(d) ? maskCpf(d) : maskCnpj(d)
 }
 
 export function maskCep(v: string): string {
@@ -31,9 +33,9 @@ export function maskFone(v: string): string {
   return v
 }
 
-/** Access key printed in eleven blocks of four digits (3.1.1). */
+/** Access key printed in eleven blocks of four characters (3.1.1). */
 export function groupChave(chave: string): string {
-  return digits(chave).replace(/(\d{4})(?=\d)/g, '$1 ')
+  return alnum(chave).replace(/(.{4})(?=.)/g, '$1 ')
 }
 
 /** 000.000.023 (9 digits, 3 groups) as on the DANFE header. */

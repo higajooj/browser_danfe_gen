@@ -27,6 +27,15 @@ describe('generateDanfeHtml', () => {
     expect(html).toContain('<svg')
   })
 
+  it('renders a note of an alphanumeric CNPJ, letters kept in the chave and in the CNPJ (NT conjunta DFe 2025.001)', () => {
+    const html = generateDanfeHtml(base.replaceAll('17707168000134', '12ABC34501DE35'))
+    expect(pages(html)).toBe(1)
+    expect(html).toContain('<title>DANFE 50210112ABC34501DE35550010000403981000840243</title>')
+    expect(html).toContain('5021 0112 ABC3 4501 DE35 5500 1000 0403 9810 0084 0243')
+    expect(html).toContain('12.ABC.345/01DE-35')
+    expect(html).toContain('class="barcode"')
+  })
+
   it('is self-contained: no scripts, no external resources', () => {
     const html = generateDanfeHtml(base)
     expect(html).not.toMatch(/<script/i)
