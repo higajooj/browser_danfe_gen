@@ -6,7 +6,7 @@ import type { DanfeOptions } from '../options'
 import { qrSvg } from '../qrcode/qrcode'
 import { box, field, innerWidth, type Ctx } from '../render/dom'
 import { enderecoLinhas, safeLogo } from '../render/header'
-import { fitPt, wrapText } from '../text'
+import { fitPt, PT_CM, textWidthCm, wrapText, type FontKind } from '../text'
 import type { Mdfe, MdfeDoc, MdfeModal } from './model'
 import { damdfeCss } from './styles'
 
@@ -20,6 +20,11 @@ const QR_SIDE = 2.6
 const ROW_H = 0.5
 const TT_H = 0.6
 const TH_H = 0.45
+/** Size and line height of a table value that does not fit in one line and is wrapped. */
+const WRAP_PT = 6
+const WRAP_LINE_H = 0.25
+/** Height of the emitente block of the sheet header. */
+const ME_H = 2.4
 const OBS_LINE_H = 0.36
 const GAP = 0.3
 const COL_L: Box = { l: L, t: 0, w: 9.0, h: 0 }
@@ -112,32 +117,50 @@ function drawHeaderRow(t: Table, y: number, ctx: Ctx): string {
   let x = t.l
   let out = ''
   for (const c of t.cols) {
-    out += box(B(x, y, c.w, TH_H), `nb th${c.align === 'r' ? ' r' : ''}`, esc(c.label), ctx)
+    const pt = fitPt(c.label, c.w - 0.16, 6.5, 5, true, ctx.font)
+    out += box(B(x, y, c.w, TH_H), `nb th${c.align === 'r' ? ' r' : ''}`, esc(c.label), ctx, pt < 6.5 ? `;font-size:${pt}pt` : '')
     x += c.w
   }
   return out + box(B(t.l, y + TH_H, tableW(t), 0), 'nb rule solid', '', ctx)
 }
 
-function drawRow(t: Table, row: string[], y: number, ctx: Ctx): string {
+interface Cell {
+  lines: string[]
+  pt: number
+}
+
+/** One line at the largest size that fits; a value too long even at the smallest size is wrapped instead of clipped. */
+function cellOf(c: Col, value: string, font: FontKind): Cell {
+  const w = c.w - 0.16
+  if (textWidthCm(value, WRAP_PT, c.bold, font) <= w) return { lines: [value], pt: fitPt(value, w, 9, WRAP_PT, c.bold, font) }
+  return { lines: wrapText(value, w, WRAP_PT, c.bold, font), pt: WRAP_PT }
+}
+
+function rowHeight(t: Table, row: string[], font: FontKind): number {
+  const lines = Math.max(...t.cols.map((c, i) => cellOf(c, row[i] ?? '', font).lines.length))
+  return lines > 1 ? Math.max(ROW_H, lines * WRAP_LINE_H + 0.1) : ROW_H
+}
+
+function drawRow(t: Table, row: string[], y: number, h: number, ctx: Ctx): string {
   let x = t.l
   let out = ''
   t.cols.forEach((c, i) => {
-    const value = row[i] ?? ''
-    const pt = fitPt(value, c.w - 0.16, 9, 6, c.bold, ctx.font)
+    const cell = cellOf(c, row[i] ?? '', ctx.font)
+    const wrapped = cell.lines.length > 1
     out += box(
-      B(x, y, c.w, ROW_H),
+      B(x, y, c.w, h),
       `nb td${c.align === 'r' ? ' r' : ''}${c.bold ? ' bold' : ''}`,
-      esc(value),
+      cell.lines.map(esc).join('<br>'),
       ctx,
-      `;font-size:${pt}pt;line-height:${ROW_H}cm`,
+      `;font-size:${cell.pt}pt;line-height:${wrapped ? WRAP_LINE_H : ROW_H}cm${wrapped ? ';padding-top:0.05cm' : ''}`,
     )
     x += c.w
   })
-  return out + box(B(t.l, y + ROW_H, tableW(t), 0), 'nb rule', '', ctx)
+  return out + box(B(t.l, y + h, tableW(t), 0), 'nb rule', '', ctx)
 }
 
 /** One section made of one or two tables side by side; rows advance together and flow over sheets. */
-function section(all: Table[]): Atom[] {
+function section(all: Table[], font: FontKind): Atom[] {
   const tables = all.filter((t) => t.rows.length > 0)
   if (tables.length === 0) return []
   const n = Math.max(...tables.map((t) => t.rows.length))
@@ -145,13 +168,17 @@ function section(all: Table[]): Atom[] {
     h: TH_H,
     draw: (y, ctx) => tables.map((t) => drawHeaderRow(t, y, ctx)).join(''),
   }
-  const rowAtom = (i: number, lead?: Atom): Atom => ({
-    h: ROW_H,
-    lead,
-    draw: (y, ctx) => tables.map((t) => (t.rows[i] ? drawRow(t, t.rows[i] as string[], y, ctx) : '')).join(''),
-  })
+  const rowAtom = (i: number, lead?: Atom): Atom => {
+    const h = Math.max(...tables.map((t) => (t.rows[i] ? rowHeight(t, t.rows[i] as string[], font) : ROW_H)))
+    return {
+      h,
+      lead,
+      draw: (y, ctx) => tables.map((t) => (t.rows[i] ? drawRow(t, t.rows[i] as string[], y, h, ctx) : '')).join(''),
+    }
+  }
+  const first = rowAtom(0)
   const head: Atom = {
-    h: GAP + TT_H + TH_H + ROW_H,
+    h: GAP + TT_H + TH_H + first.h,
     draw: (y0, ctx) => {
       const y = y0 + GAP
       return (
@@ -159,7 +186,7 @@ function section(all: Table[]): Atom[] {
           .map((t) => (t.title ? box(B(t.l, y, tableW(t), TT_H), 'nb tt', esc(t.title), ctx) : ''))
           .join('') +
         headers.draw(y + TT_H, ctx) +
-        rowAtom(0).draw(y + TT_H + TH_H, ctx)
+        first.draw(y + TT_H + TH_H, ctx)
       )
     },
   }
@@ -217,8 +244,9 @@ function paginate(atoms: Atom[], firstTop: number): Placed[][] {
 
 // --- Sections --------------------------------------------------------------------------------------
 
-function modalSections(m: MdfeModal | null): Atom[] {
+function modalSections(m: MdfeModal | null, font: FontKind): Atom[] {
   if (!m) return []
+  const sec = (all: Table[]) => section(all, font)
   switch (m.kind) {
     case 'rodo': {
       const veic = [...(m.veicTracao ? [m.veicTracao] : []), ...m.veicReboque]
@@ -250,11 +278,11 @@ function modalSections(m: MdfeModal | null): Atom[] {
         ],
         rows: m.valePedagio.map((v) => [maskDoc(v.responsavel), maskDoc(v.CNPJForn), v.nCompra]),
       }
-      return [...section([vehicles, drivers]), ...section([toll])]
+      return [...sec([vehicles, drivers]), ...sec([toll])]
     }
     case 'aereo':
       return [
-        ...section([
+        ...sec([
           {
             l: COL_L.l,
             title: 'Aeronave',
@@ -274,7 +302,7 @@ function modalSections(m: MdfeModal | null): Atom[] {
             rows: [[m.nVoo, splitDateTime(m.dVoo).date || m.dVoo]],
           },
         ]),
-        ...section([
+        ...sec([
           {
             l: L,
             title: 'Aeródromo',
@@ -306,7 +334,7 @@ function modalSections(m: MdfeModal | null): Atom[] {
         rows: list.map((u) => [u.id, u.tipo]),
       })
       return [
-        ...section([
+        ...sec([
           {
             l: L,
             title: 'Embarcação',
@@ -314,8 +342,8 @@ function modalSections(m: MdfeModal | null): Atom[] {
             rows: [[[m.cEmbar, m.xEmbar].filter(Boolean).join(' - ')]],
           },
         ]),
-        ...section([terminal('Terminal de carregamento', COL_L.l, m.termCarreg), terminal('Terminal de descarregamento', COL_R.l, m.termDescarreg)]),
-        ...section([
+        ...sec([terminal('Terminal de carregamento', COL_L.l, m.termCarreg), terminal('Terminal de descarregamento', COL_R.l, m.termDescarreg)]),
+        ...sec([
           half('Unidade de transporte vazia', COL_L.l, COL_L.w, m.transpVazia.map((u) => ({ id: u.id, tipo: TP_UNID_TRANSP[u.tipo] ?? u.tipo }))),
           half('Unidade de carga vazia', COL_R.l, COL_R.w, m.cargaVazia.map((u) => ({ id: u.id, tipo: TP_UNID_CARGA[u.tipo] ?? u.tipo }))),
         ]),
@@ -338,7 +366,7 @@ function modalSections(m: MdfeModal | null): Atom[] {
       const left = wagons(COL_L.l, rows.slice(0, cut), 'Informações dos vagões')
       const right = wagons(COL_R.l, rows.slice(cut))
       return [
-        ...section([
+        ...sec([
           {
             l: L,
             title: 'Informações da composição do trem',
@@ -352,14 +380,15 @@ function modalSections(m: MdfeModal | null): Atom[] {
             rows: [[m.xPref, dateTime(m.dhTrem), m.xOri, m.xDest, m.qVag]],
           },
         ]),
-        ...section([left, right]),
+        ...sec([left, right]),
       ]
     }
   }
 }
 
 /** "Informações da Composição da Carga": mandatory in contingency, where the document may not be on the server yet. */
-function compositionSection(docs: MdfeDoc[]): Atom[] {
+function compositionSection(docs: MdfeDoc[], font: FontKind): Atom[] {
+  const sec = (all: Table[]) => section(all, font)
   const rows: string[][] = []
   for (const d of docs) {
     const label = `${d.tipo}  ${groupChave(d.chave)}`
@@ -372,7 +401,7 @@ function compositionSection(docs: MdfeDoc[]): Atom[] {
       ]),
     )
   }
-  return section([
+  return sec([
     {
       l: L,
       title: 'Informações da Composição da Carga',
@@ -395,13 +424,39 @@ function qrContent(mdfe: Mdfe): string {
   return `${QR_BASE_URL}?chMDFe=${mdfe.chave}&tpAmb=${mdfe.ide.tpAmb || '1'}`
 }
 
+/** Name, address and ids of the emitente at sizes that fit ME_H: CEP and Fone share a line first, then the text shrinks. */
+function emitenteBlock(mdfe: Mdfe, textW: number, rntrc: string, font: FontKind) {
+  const linhas = enderecoLinhas(mdfe)
+  const isTail = (l: string) => /^(CEP|Fone): /.test(l)
+  const compact = [...linhas.filter((l) => !isTail(l)), linhas.filter(isTail).join('   ')].filter(Boolean)
+  const ids = [
+    `CNPJ/CPF: ${maskDoc(mdfe.emit.doc)}`,
+    mdfe.emit.IE ? `IE: ${mdfe.emit.IE}` : '',
+    rntrc ? `RNTRC: ${rntrc}` : '',
+  ]
+    .filter(Boolean)
+    .join('   ')
+  const layout = (nomePt: number, endPt: number, src: string[]) => {
+    const nome = wrapText(mdfe.emit.xNome, textW, nomePt, true, font).slice(0, 2)
+    const end = src.flatMap((l) => wrapText(l, textW, endPt, false, font))
+    // The ids line is bold in part, so it is measured as bold.
+    const idsPt = fitPt(ids, textW, endPt, 5, true, font)
+    const h = (nome.length * nomePt * 1.15 + end.length * endPt * 1.3 + idsPt * 1.3) * PT_CM
+    return { nome, end, nomePt, endPt, idsPt, h }
+  }
+  let best = layout(11, 8, linhas)
+  if (best.h > ME_H) best = layout(11, 8, compact)
+  for (let step = 1; best.h > ME_H && step <= 6; step++) best = layout(11 - step * 0.5, Math.max(6, 8 - step * 0.5), compact)
+  return best
+}
+
 function renderHeader(mdfe: Mdfe, ctx: Ctx, folha: number, folhas: number): string {
   const logo = safeLogo(ctx.logoDataUri)
   const logoW = logo ? 3.4 : 0
   const textW = W - QR_SIDE - 0.4 - logoW
-  const nome = wrapText(mdfe.emit.xNome, textW, 11, true, ctx.font).slice(0, 2)
-  const end = enderecoLinhas(mdfe).flatMap((l) => wrapText(l, textW, 8, false, ctx.font))
   const rntrc = mdfe.modal?.kind === 'rodo' ? mdfe.modal.RNTRC : ''
+  const me = emitenteBlock(mdfe, textW, rntrc, ctx.font)
+  const size = (pt: number, base: number) => (pt === base ? '' : ` style="font-size:${pt}pt"`)
   const ids = [
     `<b>CNPJ/CPF:</b> ${esc(maskDoc(mdfe.emit.doc))}`,
     mdfe.emit.IE ? `<b>IE:</b> ${esc(mdfe.emit.IE)}` : '',
@@ -419,9 +474,11 @@ function renderHeader(mdfe: Mdfe, ctx: Ctx, folha: number, folhas: number): stri
   }
   parts.push(
     box(
-      B(L + logoW, 0.5, textW, 2.4),
+      B(L + logoW, 0.5, textW, ME_H),
       'nb me',
-      `<div class="nome">${nome.map(esc).join('<br>')}</div><div class="end">${end.map(esc).join('<br>')}</div><div class="ids">${ids}</div>`,
+      `<div class="nome"${size(me.nomePt, 11)}>${me.nome.map(esc).join('<br>')}</div>` +
+        `<div class="end"${size(me.endPt, 8)}>${me.end.map(esc).join('<br>')}</div>` +
+        `<div class="ids"${size(me.idsPt, 8)}>${ids}</div>`,
       ctx,
     ),
   )
@@ -544,8 +601,8 @@ export function renderDamdfe(mdfe: Mdfe, opts: DanfeOptions = {}): string {
 
   const summary = renderSummary(mdfe, ctx, opts)
   const atoms: Atom[] = [
-    ...modalSections(mdfe.modal),
-    ...(mdfe.ide.tpEmis === '2' ? compositionSection(mdfe.docs) : []),
+    ...modalSections(mdfe.modal, font),
+    ...(mdfe.ide.tpEmis === '2' ? compositionSection(mdfe.docs, font) : []),
     ...textSection('Observações', observationLines(mdfe, ctx)),
   ]
   const pages = paginate(atoms, summary.end)

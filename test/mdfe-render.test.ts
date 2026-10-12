@@ -120,4 +120,39 @@ describe('DAMDFE', () => {
     expect(pages(html)).toBeGreaterThan(1)
     for (let i = 0; i < 40; i++) expect(html).toContain(`linha${i}`)
   })
+
+  it('shrinks a long emitente block so the CNPJ line stays inside the header', () => {
+    const xml = rodo
+      .replace(/<xNome>TRANSPORTADORA EXEMPLO LTDA<\/xNome>/, `<xNome>${'TRANSPORTADORA RODOVIARIA DE CARGAS '.repeat(2).slice(0, 60)}</xNome>`)
+      .replace(/<xLgr>[^<]*<\/xLgr>/, `<xLgr>${'Avenida Presidente Juscelino Kubitschek de Oliveira '.repeat(2).slice(0, 60)}</xLgr>`)
+      .replace(/<xBairro>[^<]*<\/xBairro>/, `<xBairro>${'Distrito Industrial Norte '.repeat(3).slice(0, 60)}</xBairro>`)
+    for (const fontFamily of ['times', 'courier'] as const) {
+      const html = generateDanfeHtml(xml, { fontFamily, logoDataUri: 'data:image/png;base64,AAAA' })
+      const me = /<div class="b nb me"[^>]*>(.*?)<\/div><\/div>/.exec(html)![1]!
+      const block = (cls: string) => new RegExp(`<div class="${cls}"(?: style="font-size:([\\d.]+)pt")?>(.*?)(?=<div|$)`).exec(me)!
+      const height = (cls: string, base: number, lh: number) => {
+        const m = block(cls)
+        return (m[2]!.split('<br>').length * Number(m[1] ?? base) * lh * 2.54) / 72
+      }
+      expect(height('nome', 11, 1.15) + height('end', 8, 1.3) + height('ids', 8, 1.3), fontFamily).toBeLessThanOrEqual(2.4)
+      expect(me).toContain('CEP: ')
+      expect(me).toContain('<b>CNPJ/CPF:</b> 11.222.333/0001-81')
+    }
+    // the regular fixture keeps the default sizes
+    expect(generateDanfeHtml(rodo)).toContain('<div class="nome">TRANSPORTADORA EXEMPLO LTDA</div>')
+  })
+
+  it('wraps a table value that does not fit in one line and makes the row taller', () => {
+    const ids = ['MSKU1111111', 'MSKU2222222', 'MSKU3333333', 'MSKU4444444', 'MSKU5555555', 'MSKU6666666']
+    const units = ids.map((id) => `<infUnidCarga><tpUnidCarga>1</tpUnidCarga><idUnidCarga>${id}</idUnidCarga></infUnidCarga>`).join('')
+    const xml = cont.replace(/<infUnidCarga>.*?<\/infUnidCarga>/, units)
+    const html = generateDanfeHtml(xml)
+    const cell = new RegExp('<div class="b nb td" style="([^"]*)">((?:(?!</div>).)*MSKU1111111(?:(?!</div>).)*)</div>').exec(html)!
+    expect(cell[2]).toContain('<br>')
+    for (const id of ids) expect(cell[2]).toContain(id)
+    expect(Number(/--h:([\d.]+)cm/.exec(cell[1]!)![1])).toBeGreaterThan(0.5)
+    // the following row starts below the taller one
+    const tops = [...html.matchAll(/--t:([\d.]+)cm;--w:10cm;--h:[\d.]+cm;font-size/g)].map((m) => Number(m[1]))
+    expect(tops[1]! - tops[0]!).toBeGreaterThan(0.5)
+  })
 })

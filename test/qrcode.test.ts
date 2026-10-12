@@ -5,6 +5,12 @@ import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { qrMatrix, qrSvg } from '../src/qrcode/qrcode'
 
+/** Byte-mode capacity of versions 1..40 at level M (ISO 18004 table 7). */
+const CAPACITY_M = [
+  14, 26, 42, 62, 84, 106, 122, 152, 180, 213, 251, 287, 331, 362, 412, 450, 504, 560, 624, 666,
+  711, 779, 857, 911, 997, 1059, 1125, 1190, 1264, 1370, 1452, 1538, 1628, 1722, 1809, 1911, 1989, 2099, 2213, 2331,
+]
+
 const hasZbar = spawnSync('zbarimg', ['--version']).status === 0
 
 /** Binary PGM with a quiet zone and 8 px per module: the simplest input zbarimg reads without extra tools. */
@@ -47,15 +53,26 @@ describe('qrMatrix', () => {
     }
   })
 
-  it('rejects content that does not fit in version 20-M', () => {
-    expect(() => qrMatrix('x'.repeat(700))).toThrowError(/does not fit/)
+  it('rejects content that does not fit in version 40-M', () => {
+    expect(() => qrMatrix('x'.repeat(CAPACITY_M[39]! + 1))).toThrowError(/does not fit/)
+  })
+
+  it('moves to the next version exactly at the byte capacity of each one', () => {
+    CAPACITY_M.forEach((bytes, i) => {
+      expect(qrMatrix('x'.repeat(bytes)), `version ${i + 1}`).toHaveLength(21 + 4 * i)
+      if (i < 39) expect(qrMatrix('x'.repeat(bytes + 1)), `version ${i + 2}`).toHaveLength(25 + 4 * i)
+    })
+  })
+
+  it('takes a qrCodMDFe of the schema maximum (1000 characters)', () => {
+    expect(qrMatrix('x'.repeat(1000))).toHaveLength(121)
   })
 
   it.skipIf(!hasZbar)('round-trips through zbar at every version, including UTF-8', () => {
     const base = 'http://dfe-portal.svrs.rs.gov.br/mdfe/QRCode?chMDFe=43181207312871000190580010000334041421310776&tpAmb=1&sign='
-    const lengths = [4, 14, 15, 26, 27, 42, 43, 62, 63, 84, 85, 106, 107, 122, 123, 152, 153, 180, 181, 213, 214, 251, 252, 287, 288, 331, 332, 362, 363, 412, 413, 452, 453, 504, 505, 560, 561, 624, 625, 666]
+    const lengths = [4, ...CAPACITY_M.flatMap((n) => (n < 700 ? [n, n + 1] : [n]))]
     for (const len of lengths) {
-      const text = (base + 'AbCd+/0123456789'.repeat(60)).slice(0, len)
+      const text = (base + 'AbCd+/0123456789'.repeat(150)).slice(0, len)
       expect(decode(text), `length ${len}`).toBe(text)
     }
     expect(decode('Emissão em contingência – ação')).toBe('Emissão em contingência – ação')

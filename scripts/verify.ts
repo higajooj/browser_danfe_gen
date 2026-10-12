@@ -97,7 +97,7 @@ const png = execFileSync('sh', ['-c', `ls out/${tag}-*.png | head -1`], { encodi
 const z = spawnSync('zbarimg', ['-q', '--raw', png], { encoding: 'utf8' })
 const chave = /Id="(?:NFe|MDFe)([0-9A-Z]{44})"/.exec(xml)![1]!
 // DAMDFE: the QR Code on the first sheet must decode to the qrCodMDFe of the XML.
-const qr = isMdfe ? /<qrCodMDFe>([\s\S]*?)<\/qrCodMDFe>/.exec(xml)?.[1]?.replace(/&amp;/g, '&') : undefined
+const qr = isMdfe ? (new DOMParser().parseFromString(xml, 'text/xml').getElementsByTagName('qrCodMDFe')[0]?.textContent ?? undefined) : undefined
 const qrOk = qr === undefined || z.stdout.trim().split('\n').includes(qr)
 
 console.log(JSON.stringify({ tag, htmlPages, pdfPages: pages, size, stat: res.stat, decoded: z.stdout.trim(), decodedOk: z.stdout.trim().split('\n').includes(chave), qrOk }, null, 1))

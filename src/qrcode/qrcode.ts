@@ -1,11 +1,12 @@
 import { DanfeError } from '../errors'
 
 /**
- * Minimal QR Code encoder: byte mode (UTF-8), error correction level M, versions 1-20.
- * The DAMDFE only needs to print an URL (MOC MDF-e 9.3: level M, UTF-8), which fits well below version 20.
+ * Minimal QR Code encoder: byte mode (UTF-8), error correction level M, versions 1-40.
+ * The DAMDFE only needs to print an URL (MOC MDF-e 9.3: level M, UTF-8); the schema allows up to 1000
+ * characters (a contingency URL carries the RSA signature), which needs version 26.
  */
 
-/** [EC codewords per block, blocks of group 1, data codewords of group 1 blocks, blocks of group 2, data codewords of group 2 blocks], versions 1..20. */
+/** [EC codewords per block, blocks of group 1, data codewords of group 1 blocks, blocks of group 2, data codewords of group 2 blocks], versions 1..40. */
 const EC_M: readonly (readonly [number, number, number, number, number])[] = [
   [10, 1, 16, 0, 0],
   [16, 1, 28, 0, 0],
@@ -27,9 +28,29 @@ const EC_M: readonly (readonly [number, number, number, number, number])[] = [
   [26, 9, 43, 4, 44],
   [26, 3, 44, 11, 45],
   [26, 3, 41, 13, 42],
+  [26, 17, 42, 0, 0],
+  [28, 17, 46, 0, 0],
+  [28, 4, 47, 14, 48],
+  [28, 6, 45, 14, 46],
+  [28, 8, 47, 13, 48],
+  [28, 19, 46, 4, 47],
+  [28, 22, 45, 3, 46],
+  [28, 3, 45, 23, 46],
+  [28, 21, 45, 7, 46],
+  [28, 19, 47, 10, 48],
+  [28, 2, 46, 29, 47],
+  [28, 10, 46, 23, 47],
+  [28, 14, 46, 21, 47],
+  [28, 14, 46, 23, 47],
+  [28, 12, 47, 26, 48],
+  [28, 6, 47, 34, 48],
+  [28, 29, 46, 14, 47],
+  [28, 13, 46, 32, 47],
+  [28, 40, 47, 7, 48],
+  [28, 18, 47, 31, 48],
 ]
 
-/** Centres of the alignment patterns, versions 1..20. */
+/** Centres of the alignment patterns, versions 1..40. */
 const ALIGN: readonly (readonly number[])[] = [
   [],
   [6, 18],
@@ -51,6 +72,26 @@ const ALIGN: readonly (readonly number[])[] = [
   [6, 30, 56, 82],
   [6, 30, 58, 86],
   [6, 34, 62, 90],
+  [6, 28, 50, 72, 94],
+  [6, 26, 50, 74, 98],
+  [6, 30, 54, 78, 102],
+  [6, 28, 54, 80, 106],
+  [6, 32, 58, 84, 110],
+  [6, 30, 58, 86, 114],
+  [6, 34, 62, 90, 118],
+  [6, 26, 50, 74, 98, 122],
+  [6, 30, 54, 78, 102, 126],
+  [6, 26, 52, 78, 104, 130],
+  [6, 30, 56, 82, 108, 134],
+  [6, 34, 60, 86, 112, 138],
+  [6, 30, 58, 86, 114, 142],
+  [6, 34, 62, 90, 118, 146],
+  [6, 30, 54, 78, 102, 126, 150],
+  [6, 24, 50, 76, 102, 128, 154],
+  [6, 28, 54, 80, 106, 132, 158],
+  [6, 32, 58, 84, 110, 136, 162],
+  [6, 26, 54, 82, 110, 138, 166],
+  [6, 30, 58, 86, 114, 142, 170],
 ]
 
 const MAX_VERSION = EC_M.length
