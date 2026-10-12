@@ -12,19 +12,19 @@ import {
 } from '../format'
 import { contingencyData, ufCode } from '../key'
 import { CANHOTO, HEADER } from '../layout/portrait'
-import type { Nfe } from '../model'
+import type { Endereco, Nfe } from '../model'
 import type { DanfeOptions } from '../options'
 import { wrapText } from '../text'
 import { box, field, innerWidth, cm, type Ctx } from './dom'
 
-function enderecoLinhas(nfe: Nfe): string[] {
+export function enderecoLinhas(nfe: { emit: { ender: Endereco } }): string[] {
   const e = nfe.emit.ender
   const rua = [e.xLgr, e.nro].filter(Boolean).join(', ') + (e.xCpl ? ` - ${e.xCpl}` : '')
   const cidade = [e.xBairro, e.xMun && e.UF ? `${e.xMun} - ${e.UF}` : e.xMun || e.UF].filter(Boolean).join(' - ')
   return [rua, cidade, e.CEP ? `CEP: ${maskCep(e.CEP)}` : '', e.fone ? `Fone: ${maskFone(e.fone)}` : ''].filter(Boolean)
 }
 
-function safeLogo(uri: string | undefined): string | undefined {
+export function safeLogo(uri: string | undefined): string | undefined {
   return uri && /^data:image\/(png|jpe?g|gif|svg\+xml|webp);/i.test(uri) ? uri : undefined
 }
 

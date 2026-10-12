@@ -1,4 +1,4 @@
-export type DanfeErrorCode = 'invalid-xml' | 'unsupported-document' | 'no-dom-parser'
+export type DanfeErrorCode = 'invalid-xml' | 'unsupported-document' | 'no-dom-parser' | 'qr-too-long'
 
 export class DanfeError extends Error {
   readonly code: DanfeErrorCode

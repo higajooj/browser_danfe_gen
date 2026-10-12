@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>DANFE playground</title>
+  <title>DANFE / DAMDFE playground</title>
   <style>
     body { margin: 0; font: 14px system-ui, sans-serif; display: flex; flex-direction: column; height: 100vh }
     header { display: flex; gap: 12px; align-items: center; padding: 8px 12px; border-bottom: 1px solid #ccc }
@@ -13,12 +13,12 @@
 </head>
 <body>
   <header>
-    <label>NF-e XML: <input id="file" type="file" accept=".xml,text/xml,application/xml"></label>
+    <label>NF-e / MDF-e XML: <input id="file" type="file" accept=".xml,text/xml,application/xml"></label>
     <label>Fonte: <select id="font"><option value="times">Times New Roman</option><option value="courier">Courier New</option></select></label>
     <button id="print" disabled>Imprimir</button>
     <span id="err"></span>
   </header>
-  <iframe id="preview" title="DANFE"></iframe>
+  <iframe id="preview" title="DANFE / DAMDFE"></iframe>
   <script type="module">
     import { generateDanfeHtml, printDanfe } from '../src/index.ts'
 

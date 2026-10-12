@@ -1,4 +1,5 @@
 // Real-browser verification (dev only): geometry vs spec table, text overflow, page count, barcode decode.
+// Works for a DANFE (NF-e) and a DAMDFE (MDF-e; --items repeats the first <infCTe>, the QR Code is decoded too).
 //   bun scripts/verify.ts <file.xml> [--items N] [--infcpl N]
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs'
 import { execFileSync, spawnSync } from 'node:child_process'
@@ -13,8 +14,12 @@ const file = args[0]
 if (!file) throw new Error('usage: bun scripts/verify.ts <file.xml> [--items N] [--infcpl N]')
 const opt = (n: string) => Number(args[args.indexOf(n) + 1] ?? 0) || 0
 let xml = readFileSync(file!, 'utf8')
+const isMdfe = /<(mdfeProc|MDFe)[\s>]/.test(xml)
 const items = opt('--items')
-if (items) {
+if (items && isMdfe) {
+  const m = /<infCTe>[\s\S]*?<\/infCTe>/.exec(xml)![0]
+  xml = xml.replace(m, m.repeat(items))
+} else if (items) {
   const m = /<det nItem="1">[\s\S]*?<\/det>/.exec(xml)![0]
   xml = xml.replace(m, Array.from({ length: items }, (_, i) => m.replace('nItem="1"', `nItem="${i + 1}"`)).join('\n'))
 }
@@ -50,7 +55,7 @@ addEventListener('load', () => {
       if (el.scrollHeight > el.clientHeight + 1 || el.scrollWidth > el.clientWidth + 1)
         problems.push('overflow p' + (pi + 1) + ' ' + el.className + ' "' + el.textContent.trim().slice(0, 40) + '" ' + el.scrollWidth + 'x' + el.scrollHeight + ' in ' + el.clientWidth + 'x' + el.clientHeight)
     })
-    page.querySelectorAll('.v, .l, .row > div, .qh > div, .emit .txt, .msg').forEach((el) => {
+    page.querySelectorAll('.v, .l, .row > div, .qh > div, .emit .txt, .msg, .td, .th').forEach((el) => {
       if (el.scrollWidth > el.clientWidth + 1)
         problems.push('clipped p' + (pi + 1) + ' "' + el.textContent.trim().slice(0, 40) + '" ' + el.scrollWidth + '>' + el.clientWidth)
     })
@@ -90,11 +95,14 @@ const htmlPages = (html.match(/<section class="page">/g) ?? []).length
 spawnSync('pdftoppm', ['-r', '300', '-f', '1', '-l', '1', '-png', pdf, `out/${tag}`])
 const png = execFileSync('sh', ['-c', `ls out/${tag}-*.png | head -1`], { encoding: 'utf8' }).trim()
 const z = spawnSync('zbarimg', ['-q', '--raw', png], { encoding: 'utf8' })
-const chave = /Id="NFe(\d{44})"/.exec(xml)![1]!
+const chave = /Id="(?:NFe|MDFe)([0-9A-Z]{44})"/.exec(xml)![1]!
+// DAMDFE: the QR Code on the first sheet must decode to the qrCodMDFe of the XML.
+const qr = isMdfe ? /<qrCodMDFe>([\s\S]*?)<\/qrCodMDFe>/.exec(xml)?.[1]?.replace(/&amp;/g, '&') : undefined
+const qrOk = qr === undefined || z.stdout.trim().split('\n').includes(qr)
 
-console.log(JSON.stringify({ tag, htmlPages, pdfPages: pages, size, stat: res.stat, decoded: z.stdout.trim(), decodedOk: z.stdout.trim().split('\n').includes(chave) }, null, 1))
+console.log(JSON.stringify({ tag, htmlPages, pdfPages: pages, size, stat: res.stat, decoded: z.stdout.trim(), decodedOk: z.stdout.trim().split('\n').includes(chave), qrOk }, null, 1))
 if (res.problems.length) {
   console.log(`PROBLEMS (${res.problems.length}):`)
   for (const p of res.problems.slice(0, 40)) console.log(' -', p)
 }
-process.exit(res.problems.length || pages !== htmlPages || !z.stdout.includes(chave) ? 1 : 0)
+process.exit(res.problems.length || pages !== htmlPages || !z.stdout.includes(chave) || !qrOk ? 1 : 0)

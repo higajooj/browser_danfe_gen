@@ -1,14 +1,14 @@
 import { DanfeError } from './errors'
 import type { Cobranca, Endereco, Item, Nfe, Protocolo, Totais, Transporte } from './model'
 
-type El = Element | null | undefined
+export type El = Element | null | undefined
 
-const kids = (el: El, name: string): Element[] =>
+export const kids = (el: El, name: string): Element[] =>
   el ? Array.from(el.children).filter((c) => c.localName === name) : []
 
-const kid = (el: El, name: string): Element | null => kids(el, name)[0] ?? null
+export const kid = (el: El, name: string): Element | null => kids(el, name)[0] ?? null
 
-const path = (el: El, ...names: string[]): Element | null => {
+export const path = (el: El, ...names: string[]): Element | null => {
   let cur: El = el
   for (const n of names) {
     cur = kid(cur, n)
@@ -18,9 +18,9 @@ const path = (el: El, ...names: string[]): Element | null => {
 }
 
 /** Text of the element at `names` below `el`; '' when absent. */
-const txt = (el: El, ...names: string[]): string => path(el, ...names)?.textContent?.trim() ?? ''
+export const txt = (el: El, ...names: string[]): string => path(el, ...names)?.textContent?.trim() ?? ''
 
-function parseXml(xml: string): Document {
+export function parseXml(xml: string): Document {
   if (typeof DOMParser === 'undefined') {
     throw new DanfeError('no-dom-parser', 'DOMParser is not available in this environment')
   }
@@ -32,7 +32,7 @@ function parseXml(xml: string): Document {
   return doc
 }
 
-function parseEndereco(el: El): Endereco {
+export function parseEndereco(el: El): Endereco {
   return {
     xLgr: txt(el, 'xLgr'),
     nro: txt(el, 'nro'),
@@ -46,7 +46,7 @@ function parseEndereco(el: El): Endereco {
   }
 }
 
-const docOf = (el: El) => txt(el, 'CNPJ') || txt(el, 'CPF') || txt(el, 'idEstrangeiro')
+export const docOf = (el: El) => txt(el, 'CNPJ') || txt(el, 'CPF') || txt(el, 'idEstrangeiro')
 
 function parseItem(det: Element): Item {
   const prod = kid(det, 'prod')
@@ -136,7 +136,7 @@ function parseCobr(el: El): Cobranca {
   }
 }
 
-function parseProt(el: El): Protocolo | null {
+export function parseProt(el: El): Protocolo | null {
   const inf = kid(el, 'infProt')
   if (!inf) return null
   return { nProt: txt(inf, 'nProt'), dhRecbto: txt(inf, 'dhRecbto'), cStat: txt(inf, 'cStat'), tpAmb: txt(inf, 'tpAmb') }
@@ -144,7 +144,11 @@ function parseProt(el: El): Protocolo | null {
 
 /** Parse an <nfeProc> or bare <NFe> document. Throws DanfeError otherwise. */
 export function parseNfe(xml: string): Nfe {
-  const doc = parseXml(xml)
+  return parseNfeDocument(parseXml(xml))
+}
+
+/** Same as `parseNfe` for an already-loaded document. */
+export function parseNfeDocument(doc: Document): Nfe {
   const root = doc.documentElement
   let nfe: El
   let protEl: El = null
