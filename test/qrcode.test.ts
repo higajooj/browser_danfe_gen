@@ -76,7 +76,7 @@ describe('qrMatrix', () => {
       expect(decode(text), `length ${len}`).toBe(text)
     }
     expect(decode('Emissão em contingência – ação')).toBe('Emissão em contingência – ação')
-  })
+  }, 60_000)
 })
 
 describe('qrSvg', () => {

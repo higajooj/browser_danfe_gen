@@ -1,8 +1,21 @@
 {
   "name": "browser-danfe-gen",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Generate NF-e DANFE and MDF-e DAMDFE as printable HTML, entirely in the browser.",
-  "keywords": ["danfe", "damdfe", "nfe", "nf-e", "mdfe", "mdf-e", "nota-fiscal", "sefaz", "brazil", "browser", "html", "print"],
+  "keywords": [
+    "danfe",
+    "damdfe",
+    "nfe",
+    "nf-e",
+    "mdfe",
+    "mdf-e",
+    "nota-fiscal",
+    "sefaz",
+    "brazil",
+    "browser",
+    "html",
+    "print"
+  ],
   "author": "Daniel Higa",
   "license": "MPL-2.0",
   "repository": {
@@ -22,7 +35,9 @@
       "import": "./dist/index.js"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "dev": "vite playground",
     "build": "vite build && tsc -p tsconfig.build.json",
