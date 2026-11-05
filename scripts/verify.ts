@@ -1,6 +1,7 @@
 // Real-browser verification (dev only): geometry vs spec table, text overflow, page count, barcode decode.
-// Works for a DANFE (NF-e) and a DAMDFE (MDF-e; --items repeats the first <infCTe>, the QR Code is decoded too).
-//   bun scripts/verify.ts <file.xml> [--items N] [--infcpl N]
+// Works for a DANFE (NF-e), a DAMDFE (MDF-e; --items repeats the first <infCTe>, the QR Code is decoded too)
+// and a DANFE NFC-e (one receipt sheet as tall as the content; the QR Code must decode to infNFeSupl/qrCode).
+//   bun scripts/verify.ts <file.xml> [--items N] [--infcpl N] [--width MM] [--resumido]
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs'
 import { execFileSync, spawnSync } from 'node:child_process'
 import { basename, resolve } from 'node:path'
@@ -11,10 +12,13 @@ const { generateDanfeHtml } = await import('../src/index')
 
 const args = process.argv.slice(2)
 const file = args[0]
-if (!file) throw new Error('usage: bun scripts/verify.ts <file.xml> [--items N] [--infcpl N]')
+if (!file) throw new Error('usage: bun scripts/verify.ts <file.xml> [--items N] [--infcpl N] [--width MM] [--resumido]')
 const opt = (n: string) => Number(args[args.indexOf(n) + 1] ?? 0) || 0
 let xml = readFileSync(file!, 'utf8')
 const isMdfe = /<(mdfeProc|MDFe)[\s>]/.test(xml)
+const isNfce = /<mod>65<\/mod>/.test(xml)
+const width = opt('--width')
+const resumido = args.includes('--resumido')
 const items = opt('--items')
 if (items && isMdfe) {
   const m = /<infCTe>[\s\S]*?<\/infCTe>/.exec(xml)![0]
@@ -29,9 +33,12 @@ if (infN) {
   xml = xml.replace(/<infCpl>[\s\S]*?<\/infCpl>/, `<infCpl>${long}</infCpl>`)
 }
 
-const tag = `${basename(file!, '.xml')}${items ? `-i${items}` : ''}${infN ? `-c${infN}` : ''}`
+const tag = `${basename(file!, '.xml')}${items ? `-i${items}` : ''}${infN ? `-c${infN}` : ''}${width ? `-w${width}` : ''}${resumido ? '-r' : ''}`
 mkdirSync('out', { recursive: true })
-const html = generateDanfeHtml(xml, { fontFamily: process.env.DANFE_FONT === 'courier' ? 'courier' : 'times' })
+const html = generateDanfeHtml(xml, {
+  fontFamily: process.env.DANFE_FONT === 'courier' ? 'courier' : 'times',
+  nfce: { paperWidthMm: width || undefined, resumido },
+})
 writeFileSync(`out/${tag}.html`, html)
 
 const probe = `<script>
@@ -55,14 +62,17 @@ addEventListener('load', () => {
       if (el.scrollHeight > el.clientHeight + 1 || el.scrollWidth > el.clientWidth + 1)
         problems.push('overflow p' + (pi + 1) + ' ' + el.className + ' "' + el.textContent.trim().slice(0, 40) + '" ' + el.scrollWidth + 'x' + el.scrollHeight + ' in ' + el.clientWidth + 'x' + el.clientHeight)
     })
-    page.querySelectorAll('.v, .l, .row > div, .qh > div, .emit .txt, .msg, .td, .th').forEach((el) => {
-      if (el.scrollWidth > el.clientWidth + 1)
+    page.querySelectorAll('.v, .l, .row > div, .qh > div, .emit .txt, .msg, .td, .th, .ln, .ln > span').forEach((el) => {
+      if (el.scrollWidth > el.clientWidth + 1 || el.scrollHeight > el.clientHeight + 1)
         problems.push('clipped p' + (pi + 1) + ' "' + el.textContent.trim().slice(0, 40) + '" ' + el.scrollWidth + '>' + el.clientWidth)
     })
     const rows = page.querySelector('.q > div[style*="--lh"]')
     const q = page.querySelector('.q')
     if (rows && q && rows.getBoundingClientRect().bottom > q.getBoundingClientRect().bottom + 1)
       problems.push('items overflow the quadro on page ' + (pi + 1))
+    // NFC-e: the content must end above the bottom of the sheet.
+    const last = page.lastElementChild
+    if (last && last.getBoundingClientRect().bottom > pr.bottom + 1) problems.push('content below the sheet on page ' + (pi + 1))
     const bc = page.querySelector('svg.barcode')
     if (bc) {
       const w = bc.getBoundingClientRect().width / PX, vb = bc.viewBox.baseVal.width
@@ -96,13 +106,16 @@ spawnSync('pdftoppm', ['-r', '300', '-f', '1', '-l', '1', '-png', pdf, `out/${ta
 const png = execFileSync('sh', ['-c', `ls out/${tag}-*.png | head -1`], { encoding: 'utf8' }).trim()
 const z = spawnSync('zbarimg', ['-q', '--raw', png], { encoding: 'utf8' })
 const chave = /Id="(?:NFe|MDFe)([0-9A-Z]{44})"/.exec(xml)![1]!
-// DAMDFE: the QR Code on the first sheet must decode to the qrCodMDFe of the XML.
-const qr = isMdfe ? (new DOMParser().parseFromString(xml, 'text/xml').getElementsByTagName('qrCodMDFe')[0]?.textContent ?? undefined) : undefined
+// DAMDFE / DANFE NFC-e: the QR Code on the first sheet must decode to the qrCodMDFe / qrCode of the XML.
+const qrTag = isMdfe ? 'qrCodMDFe' : isNfce ? 'qrCode' : ''
+const qr = qrTag ? (new DOMParser().parseFromString(xml, 'text/xml').getElementsByTagName(qrTag)[0]?.textContent?.trim() ?? undefined) : undefined
 const qrOk = qr === undefined || z.stdout.trim().split('\n').includes(qr)
+// The DANFE NFC-e has no barcode of the chave: the QR Code is the only symbol.
+const barcodeOk = isNfce || z.stdout.trim().split('\n').includes(chave)
 
-console.log(JSON.stringify({ tag, htmlPages, pdfPages: pages, size, stat: res.stat, decoded: z.stdout.trim(), decodedOk: z.stdout.trim().split('\n').includes(chave), qrOk }, null, 1))
+console.log(JSON.stringify({ tag, htmlPages, pdfPages: pages, size, stat: res.stat, decoded: z.stdout.trim(), decodedOk: barcodeOk, qrOk }, null, 1))
 if (res.problems.length) {
   console.log(`PROBLEMS (${res.problems.length}):`)
   for (const p of res.problems.slice(0, 40)) console.log(' -', p)
 }
-process.exit(res.problems.length || pages !== htmlPages || !z.stdout.includes(chave) || !qrOk ? 1 : 0)
+process.exit(res.problems.length || pages !== htmlPages || !barcodeOk || !qrOk ? 1 : 0)
