@@ -106,12 +106,30 @@ export interface Cobranca {
   duplicatas: Duplicata[]
 }
 
+/** One detPag of the pag group (YA01a). */
+export interface Pagamento {
+  /** 0 = à vista, 1 = a prazo; often absent. */
+  indPag: string
+  tPag: string
+  /** Description of the payment method; required when tPag = 99. */
+  xPag: string
+  vPag: string
+}
+
+/** infNFeSupl (ZX01): QR Code and consulta URL of an NFC-e. */
+export interface NfeSupl {
+  qrCode: string
+  urlChave: string
+}
+
 export interface Protocolo {
   nProt: string
   /** dhRecbto as written in the XML. */
   dhRecbto: string
   cStat: string
   tpAmb: string
+  /** Message of the tax authority returned with the authorization (an NFC-e may print it). */
+  xMsg: string
 }
 
 export interface Nfe {
@@ -130,13 +148,20 @@ export interface Nfe {
     tpNF: string
     tpEmis: string
     tpAmb: string
+    /** Date-time the emitter entered contingency (dhCont), as written. */
+    dhCont: string
   }
   emit: Emitente
   dest: Destinatario | null
+  /** Delivery address (entrega, G01), when different from the destinatário's. */
+  entrega: (Endereco & { doc: string; xNome: string }) | null
   itens: Item[]
   total: Totais
   transp: Transporte
   cobr: Cobranca
+  pag: { detPag: Pagamento[]; vTroco: string }
   infAdic: { infAdFisco: string; infCpl: string; obsCont: { xCampo: string; xTexto: string }[] }
+  /** Only on an NFC-e (modelo 65). */
+  supl: NfeSupl
   prot: Protocolo | null
 }

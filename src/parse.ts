@@ -1,5 +1,5 @@
 import { DanfeError } from './errors'
-import type { Cobranca, Endereco, Item, Nfe, Protocolo, Totais, Transporte } from './model'
+import type { Cobranca, Endereco, Item, Nfe, Pagamento, Protocolo, Totais, Transporte } from './model'
 
 export type El = Element | null | undefined
 
@@ -136,10 +136,26 @@ function parseCobr(el: El): Cobranca {
   }
 }
 
+/** Layout 4.00 has one <pag> with <detPag> children; 3.10 repeats <pag> with tPag/vPag directly inside. */
+function parsePag(inf: Element): Nfe['pag'] {
+  const pags = kids(inf, 'pag')
+  const det = pags.flatMap((p) => kids(p, 'detPag'))
+  const detPag = (det.length ? det : pags.filter((p) => kid(p, 'tPag'))).map(
+    (d): Pagamento => ({ indPag: txt(d, 'indPag'), tPag: txt(d, 'tPag'), xPag: txt(d, 'xPag'), vPag: txt(d, 'vPag') }),
+  )
+  return { detPag, vTroco: txt(pags[0], 'vTroco') }
+}
+
 export function parseProt(el: El): Protocolo | null {
   const inf = kid(el, 'infProt')
   if (!inf) return null
-  return { nProt: txt(inf, 'nProt'), dhRecbto: txt(inf, 'dhRecbto'), cStat: txt(inf, 'cStat'), tpAmb: txt(inf, 'tpAmb') }
+  return {
+    nProt: txt(inf, 'nProt'),
+    dhRecbto: txt(inf, 'dhRecbto'),
+    cStat: txt(inf, 'cStat'),
+    tpAmb: txt(inf, 'tpAmb'),
+    xMsg: txt(inf, 'xMsg'),
+  }
 }
 
 /** Parse an <nfeProc> or bare <NFe> document. Throws DanfeError otherwise. */
@@ -167,6 +183,8 @@ export function parseNfeDocument(doc: Document): Nfe {
   const emit = kid(inf, 'emit')
   const dest = kid(inf, 'dest')
   const infAdic = kid(inf, 'infAdic')
+  const entrega = kid(inf, 'entrega')
+  const supl = kid(nfe, 'infNFeSupl')
   const chave = (inf.getAttribute('Id') ?? '').replace(/^NFe/, '') || txt(protEl, 'infProt', 'chNFe')
 
   const dSaiEnt = txt(ide, 'dSaiEnt')
@@ -186,6 +204,7 @@ export function parseNfeDocument(doc: Document): Nfe {
       tpNF: txt(ide, 'tpNF'),
       tpEmis: txt(ide, 'tpEmis'),
       tpAmb: txt(ide, 'tpAmb'),
+      dhCont: txt(ide, 'dhCont'),
     },
     emit: {
       doc: docOf(emit),
@@ -199,15 +218,18 @@ export function parseNfeDocument(doc: Document): Nfe {
     dest: dest
       ? { doc: docOf(dest), xNome: txt(dest, 'xNome'), ender: parseEndereco(kid(dest, 'enderDest')), IE: txt(dest, 'IE') }
       : null,
+    entrega: entrega ? { ...parseEndereco(entrega), doc: docOf(entrega), xNome: txt(entrega, 'xNome') } : null,
     itens: kids(inf, 'det').map(parseItem),
     total: parseTotais(kid(inf, 'total')),
     transp: parseTransp(kid(inf, 'transp')),
     cobr: parseCobr(kid(inf, 'cobr')),
+    pag: parsePag(inf),
     infAdic: {
       infAdFisco: txt(infAdic, 'infAdFisco'),
       infCpl: txt(infAdic, 'infCpl'),
       obsCont: kids(infAdic, 'obsCont').map((o) => ({ xCampo: o.getAttribute('xCampo') ?? '', xTexto: txt(o, 'xTexto') })),
     },
+    supl: { qrCode: txt(supl, 'qrCode'), urlChave: txt(supl, 'urlChave') },
     prot: parseProt(protEl),
   }
 }
