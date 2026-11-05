@@ -101,7 +101,8 @@ describe('DANFE NFC-e', () => {
     expect(t).toContain('EMITIDA EM CONTINGÊNCIA Pendente de autorização')
     expect(t).toContain('DANFE-NFC-e impresso em contingência - EPEC')
     expect(t).toContain('Regularmente recebido pela administração tributária autorizadora')
-    expect(t).toContain('Data entrada contingência: 05/11/2026 15:01:51')
+    // dhCont is not printed for contingency types 4 and 9 (Anexo IV, 3).
+    expect(t).not.toContain('contingência: 05/11/2026')
   })
 
   it('marks the homologação environment', () => {
@@ -115,11 +116,19 @@ describe('DANFE NFC-e', () => {
     expect(text(generateDanfeHtml(cnpj))).toContain('CONSUMIDOR CNPJ: 12.ABC.345/01DE-35 - MARIA DA SILVA')
     const est = nfce.replace('<CPF>52998224725</CPF>', '<idEstrangeiro>AB123456</idEstrangeiro>')
     expect(text(generateDanfeHtml(est))).toContain('CONSUMIDOR Id. Estrangeiro: AB123456 - MARIA DA SILVA')
+    // A foreign id with the length of a CPF is still a foreign id.
+    const est11 = nfce.replace('<CPF>52998224725</CPF>', '<idEstrangeiro>12345678901</idEstrangeiro>')
+    expect(text(generateDanfeHtml(est11))).toContain('CONSUMIDOR Id. Estrangeiro: 12345678901 - MARIA DA SILVA')
     const entrega = nfce.replace(
       '<det nItem="1">',
       '<entrega><CPF>52998224725</CPF><xNome>JOAO SOUZA</xNome><xLgr>RUA B</xLgr><nro>5</nro><xBairro>VILA</xBairro><cMun>5002704</cMun><xMun>Campo Grande</xMun><UF>MS</UF></entrega><det nItem="1">',
     )
-    expect(text(generateDanfeHtml(entrega))).toContain('CONSUMIDOR CPF: 529.982.247-25 - JOAO SOUZA - RUA B, 5, VILA, Campo Grande, MS')
+    // The consumer stays the consumer; the delivery recipient goes with the delivery address.
+    expect(text(generateDanfeHtml(entrega))).toContain(
+      'CONSUMIDOR CPF: 529.982.247-25 - MARIA DA SILVA - Entrega: JOAO SOUZA, RUA B, 5, VILA, Campo Grande, MS',
+    )
+    const sameName = entrega.replace('<xNome>JOAO SOUZA</xNome>', '<xNome>MARIA DA SILVA</xNome>')
+    expect(text(generateDanfeHtml(sameName))).toContain('MARIA DA SILVA - Entrega: RUA B, 5, VILA')
   })
 
   it('names the payment from xPag, the IT 2024.002 table or the code itself', () => {
@@ -130,6 +139,19 @@ describe('DANFE NFC-e', () => {
     const t = text(generateDanfeHtml(xml))
     expect(t).toContain('Permuta 10,00 Pagamento Instantâneo (PIX) - Estático 20,00 77 12,00')
     expect(t).not.toContain('Troco')
+  })
+
+  it('prints the authorization date-time in the emitter\'s local time', () => {
+    const xml = nfce.replace('<dhRecbto>2026-11-05T15:04:26-04:00</dhRecbto>', '<dhRecbto>2026-11-05T16:04:26-03:00</dhRecbto>')
+    expect(text(generateDanfeHtml(xml))).toContain('Data de autorização: 05/11/2026 15:04:26')
+    const utc = nfce.replace('<dhRecbto>2026-11-05T15:04:26-04:00</dhRecbto>', '<dhRecbto>2026-11-06T02:00:00Z</dhRecbto>')
+    expect(text(generateDanfeHtml(utc))).toContain('Data de autorização: 05/11/2026 22:00:00')
+  })
+
+  it('keeps the significant decimals of the unit price', () => {
+    const xml = nfce
+      .replace('<qCom>2</qCom><vUnCom>18.9</vUnCom><vProd>37.80</vProd>', '<qCom>10000</qCom><vUnCom>0.000049</vUnCom><vProd>0.49</vProd>')
+    expect(text(generateDanfeHtml(xml))).toContain('10.000 UN 0,000049 0,49')
   })
 
   it('leaves the items out of the DANFE NFC-e resumido', () => {

@@ -73,17 +73,19 @@ Contingência NFC-e (Anexo IV), as one continuous receipt for a paper roll (defa
   Pagar" (only when it differs from the items), each payment (description from `xPag` or the Tabela de Meios de
   Pagamento, IT 2024.002 v1.11) and the troco.
 * IV – "Consulte pela Chave de Acesso em" + `urlChave` + the chave in 11 blocks of 4.
-* VI / VII – consumer (CPF, CNPJ or Id. Estrangeiro, name and delivery address from `entrega`, or the consumer's
-  own address) or "CONSUMIDOR NÃO IDENTIFICADO"; NFC-e nº, série, emission date-time; protocol and authorization
-  date-time.
+* VI / VII – consumer (CPF, CNPJ or Id. Estrangeiro, name and the `entrega` delivery address with its recipient,
+  or the consumer's own address) or "CONSUMIDOR NÃO IDENTIFICADO"; NFC-e nº, série, emission date-time; protocol and authorization
+  date-time, shifted to the UTC offset of the emission (the emitter's local time) when the authorizer answers in
+  another one.
 * VIII – contingency notice, `infAdFisco`, the `xMsg` returned with the authorization (e.g. a UF's lottery
   message) and, in homologação, "EMITIDA EM AMBIENTE DE HOMOLOGAÇÃO – SEM VALOR FISCAL".
 * V – QR Code of `infNFeSupl/qrCode` (EC level M, UTF-8), centred (Figura 5): at least 22 mm of modules, a
   module of at least 0.4 mm, a quiet zone of 4 modules (10 % for large symbols).
 * IX – "Tributos Totais Incidentes (Lei Federal 12.741/2012)" when `vTotTrib` is above zero, and `infCpl`.
 * Contingência off-line (`tpEmis=9`) or EPEC (`tpEmis=4`) without a protocol: "EMITIDA EM CONTINGÊNCIA /
-  Pendente de autorização" between bands under the header and again below the identification (the EPEC text and
-  `dhCont` for EPEC), and "Via consumidor" / "Via estabelecimento" beside the emission date-time.
+  Pendente de autorização" between bands under the header and again below the identification (the EPEC text for
+  EPEC; `dhCont` and `xJust` are not printed, Anexo IV 3), and "Via consumidor" / "Via estabelecimento" beside
+  the emission date-time.
 
 Choices where the manual leaves room: the QR Code is always centred, which works on every paper width; once a
 contingency NFC-e has a protocol (in the XML or `options.protocol`) it is printed like a normal one, as for the

@@ -1,5 +1,5 @@
 import { DanfeError } from './errors'
-import type { Cobranca, Endereco, Item, Nfe, Pagamento, Protocolo, Totais, Transporte } from './model'
+import type { Cobranca, Destinatario, Endereco, Item, Nfe, Pagamento, Protocolo, Totais, Transporte } from './model'
 
 export type El = Element | null | undefined
 
@@ -47,6 +47,9 @@ export function parseEndereco(el: El): Endereco {
 }
 
 export const docOf = (el: El) => txt(el, 'CNPJ') || txt(el, 'CPF') || txt(el, 'idEstrangeiro')
+
+const docTipoOf = (el: El): Destinatario['docTipo'] =>
+  txt(el, 'CNPJ') ? 'CNPJ' : txt(el, 'CPF') ? 'CPF' : txt(el, 'idEstrangeiro') ? 'idEstrangeiro' : ''
 
 function parseItem(det: Element): Item {
   const prod = kid(det, 'prod')
@@ -216,7 +219,13 @@ export function parseNfeDocument(doc: Document): Nfe {
       IM: txt(emit, 'IM'),
     },
     dest: dest
-      ? { doc: docOf(dest), xNome: txt(dest, 'xNome'), ender: parseEndereco(kid(dest, 'enderDest')), IE: txt(dest, 'IE') }
+      ? {
+          doc: docOf(dest),
+          docTipo: docTipoOf(dest),
+          xNome: txt(dest, 'xNome'),
+          ender: parseEndereco(kid(dest, 'enderDest')),
+          IE: txt(dest, 'IE'),
+        }
       : null,
     entrega: entrega ? { ...parseEndereco(entrega), doc: docOf(entrega), xNome: txt(entrega, 'xNome') } : null,
     itens: kids(inf, 'det').map(parseItem),

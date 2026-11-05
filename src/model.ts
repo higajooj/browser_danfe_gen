@@ -24,6 +24,8 @@ export interface Emitente {
 export interface Destinatario {
   /** CNPJ, CPF or idEstrangeiro. */
   doc: string
+  /** Which of the three `doc` is: a foreign id may have the length of a CPF or CNPJ. */
+  docTipo: 'CNPJ' | 'CPF' | 'idEstrangeiro' | ''
   xNome: string
   ender: Endereco
   IE: string

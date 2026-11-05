@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-05
+
 ### Added
 
 - DANFE NFC-e for NFC-e (modelo 65) as a receipt roll, auto-detected by `generateDanfeHtml` and exported as

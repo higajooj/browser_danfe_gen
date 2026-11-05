@@ -61,6 +61,23 @@ function dateTime(v: string): string {
   return [date, time].filter(Boolean).join(' ')
 }
 
+const DT = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?(Z|[+-]\d{2}:\d{2})$/
+const offsetMin = (z: string) => (z === 'Z' ? 0 : (z[0] === '-' ? -1 : 1) * (Number(z.slice(1, 3)) * 60 + Number(z.slice(4, 6))))
+
+/**
+ * `v` as the emitter's local date-time (3.1.7), taking the UTC offset of the emission `ref` as local:
+ * the authorizer may answer in another offset. As written when either has no offset.
+ */
+function localDateTime(v: string, ref: string): string {
+  const m = DT.exec(v.trim())
+  const zone = DT.exec(ref.trim())?.[7]
+  if (!m || !zone) return dateTime(v)
+  const utc = Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]), Number(m[4]), Number(m[5]), Number(m[6] ?? 0))
+  const d = new Date(utc - offsetMin(m[7] as string) * 60000 + offsetMin(zone) * 60000)
+  const p = (n: number) => String(n).padStart(2, '0')
+  return `${p(d.getUTCDate())}/${p(d.getUTCMonth() + 1)}/${d.getUTCFullYear()} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}:${p(d.getUTCSeconds())}`
+}
+
 /** pt-BR number with `min`..`max` decimals; anything that is not a number is printed as written. */
 function decimal(v: string, min: number, max: number): string {
   const n = Number(v)
@@ -212,7 +229,8 @@ function itens(f: Flow, nfe: Nfe): void {
     desc: i.xProd,
     q: decimal(i.qCom, 0, 4),
     un: i.uCom,
-    vu: decimal(i.vUnCom, 2, 4),
+    // vUnCom carries up to 10 decimals (TDec_1110v); a fraction of a cent must not round away.
+    vu: decimal(i.vUnCom, 2, 10),
     vt: formatMoney(i.vProd),
   }))
   const colW = (k: keyof ItemRow) =>
@@ -316,20 +334,21 @@ function consumidor(f: Flow, nfe: Nfe): void {
   const d = nfe.dest
   const e = nfe.entrega
   const doc = d?.doc ?? ''
-  const nome = e?.xNome || d?.xNome || ''
-  // The delivery address is mandatory for a home delivery (entrega); otherwise the consumer's, when given.
-  const end = e ? endereco(e) : d && d.ender.xLgr ? endereco(d.ender) : ''
+  const nome = d?.xNome ?? ''
+  // A home delivery (entrega) needs the consumer's name and the delivery address, with its recipient when
+  // that is someone else; otherwise the consumer's own address, when given.
+  const recebedor = e?.xNome && e.xNome !== nome ? `${e.xNome}, ` : ''
+  const end = e ? `Entrega: ${recebedor}${endereco(e)}` : d && d.ender.xLgr ? endereco(d.ender) : ''
   if (!doc && !nome && !end) {
     f.text('CONSUMIDOR NÃO IDENTIFICADO', pt, { align: 'c', bold: true })
     return
   }
+  // The tag says what the document is: a foreign id may have the length of a CPF or a CNPJ.
   const id = !doc
     ? ''
-    : /^[0-9A-Z]{14}$/.test(doc)
-      ? `CNPJ: ${maskDoc(doc)}`
-      : /^\d{11}$/.test(doc)
-        ? `CPF: ${maskDoc(doc)}`
-        : `Id. Estrangeiro: ${doc}`
+    : d?.docTipo === 'idEstrangeiro'
+      ? `Id. Estrangeiro: ${doc}`
+      : `${d?.docTipo === 'CPF' ? 'CPF' : 'CNPJ'}: ${maskDoc(doc)}`
   const text = ['CONSUMIDOR', [id, nome, end].filter(Boolean).join(' - ')].filter(Boolean).join(' ')
   f.text(text, pt, { align: 'c', lead: 'CONSUMIDOR' })
 }
@@ -347,7 +366,7 @@ function identificacao(f: Flow, nfe: Nfe, prot: Prot | null, via: string): void 
   f.text(id, 8, { align: 'c', bold: true })
   if (!prot) return
   f.text(`Protocolo de autorização: ${prot.nProt}`, 7.5, { align: 'c', lead: 'Protocolo de autorização:' })
-  f.text(`Data de autorização: ${dateTime(prot.dt)}`, 7.5, { align: 'c', lead: 'Data de autorização:' })
+  f.text(`Data de autorização: ${localDateTime(prot.dt, nfe.ide.dhEmi)}`, 7.5, { align: 'c', lead: 'Data de autorização:' })
 }
 
 /** Divisão VIII: contingency notice, infAdFisco, the authorizer's message and the homologação notice. */
@@ -358,8 +377,8 @@ function mensagemFiscal(f: Flow, nfe: Nfe, pending: boolean): void {
   }
   if (pending && nfe.ide.tpEmis === '4') {
     f.text('DANFE-NFC-e impresso em contingência - EPEC', fitPt('DANFE-NFC-e impresso em contingência - EPEC', f.w / 10, 10, 7, true, f.font), { align: 'c', bold: true })
+    // dhCont and xJust are not printed (Anexo IV, 3), although the EPEC sample shows the entry date.
     f.text('Regularmente recebido pela administração tributária autorizadora', 7.5, { align: 'c', bold: true })
-    if (nfe.ide.dhCont) f.text(`Data entrada contingência: ${dateTime(nfe.ide.dhCont)}`, 7.5, { align: 'c' })
   } else if (pending) {
     f.text('EMITIDA EM CONTINGÊNCIA', fitPt('EMITIDA EM CONTINGÊNCIA', f.w / 10, 11, 7, true, f.font), { align: 'c', bold: true })
     f.text('Pendente de autorização', 8, { align: 'c' })

@@ -10,7 +10,7 @@ describe('parseNfe (NFC-e)', () => {
     expect(n.chave).toBe('50261111222333000181650010039055651821356137')
     expect(mod11(n.chave.slice(0, 43))).toBe(Number(n.chave[43]))
     expect(n.ide).toMatchObject({ mod: '65', serie: '1', nNF: '3905565', tpEmis: '1', tpAmb: '1', dhCont: '' })
-    expect(n.dest).toMatchObject({ doc: '52998224725', xNome: 'MARIA DA SILVA' })
+    expect(n.dest).toMatchObject({ doc: '52998224725', docTipo: 'CPF', xNome: 'MARIA DA SILVA' })
     expect(n.entrega).toBeNull()
     expect(n.itens.map((i) => i.cProd)).toEqual(['7891234', '7895678'])
     expect(n.total).toMatchObject({ vProd: '43.29', vDesc: '1.29', vNF: '42.00', vTotTrib: '9.87' })
