@@ -409,7 +409,11 @@ export interface QrSvgOptions {
 
 /** Inline SVG with a single <path>; horizontal runs of dark modules are merged. */
 export function qrSvg(text: string, opts: QrSvgOptions): string {
-  const m = qrMatrix(text)
+  return matrixSvg(qrMatrix(text), opts)
+}
+
+/** Same as `qrSvg` for a matrix from `qrMatrix`, for callers that size the symbol from its module count. */
+export function matrixSvg(m: boolean[][], opts: QrSvgOptions): string {
   const quiet = opts.quietModules ?? 4
   const n = m.length
   let d = ''

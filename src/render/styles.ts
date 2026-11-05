@@ -1,6 +1,6 @@
 import type { FontKind } from '../text'
 
-const FAMILIES: Record<FontKind, string> = {
+export const FAMILIES: Record<FontKind, string> = {
   times: `"Times New Roman", "Liberation Serif", Tinos, Times, serif`,
   courier: `"Courier New", "Liberation Mono", Cousine, Courier, monospace`,
 }
