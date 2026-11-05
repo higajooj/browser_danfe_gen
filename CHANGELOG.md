@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- DANFE NFC-e for NFC-e (modelo 65) as a receipt roll, auto-detected by `generateDanfeHtml` and exported as
+  `generateDanfeNfceHtml`, with paper width, resumido and contingency copy options.
+- `parseNfe` reads payments, troco, `infNFeSupl`, `entrega`, `dhCont` and the protocol `xMsg`.
+
 ## [0.2.0] - 2026-10-13
 
 ### Added

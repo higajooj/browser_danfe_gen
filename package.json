@@ -1,12 +1,14 @@
 {
   "name": "browser-danfe-gen",
   "version": "0.2.0",
-  "description": "Generate NF-e DANFE and MDF-e DAMDFE as printable HTML, entirely in the browser.",
+  "description": "Generate NF-e DANFE, NFC-e DANFE and MDF-e DAMDFE as printable HTML, entirely in the browser.",
   "keywords": [
     "danfe",
     "damdfe",
     "nfe",
     "nf-e",
+    "nfce",
+    "nfc-e",
     "mdfe",
     "mdf-e",
     "nota-fiscal",
