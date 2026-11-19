@@ -13,12 +13,19 @@ export interface NfceOptions {
   via?: 'consumidor' | 'estabelecimento'
 }
 
+export interface NfseOptions {
+  /** Print the optional receipt at the bottom of the DANFSe. Default false. */
+  canhoto?: boolean
+  /** Current status determined from the NFS-e events, for the DANFSe watermark. */
+  situacao?: 'cancelada' | 'substituida'
+}
+
 export interface DanfeOptions {
   /** `data:image/...` URI of the emitter logo (printed inside the emitente frame). */
   logoDataUri?: string
   /** Spec allows Times New Roman or Courier New (DANFE 3.7); also applied to the DAMDFE and DANFE NFC-e. Default: 'times'. */
   fontFamily?: 'times' | 'courier'
-  /** <title> of the document; browsers use it as the default PDF file name. Default: `DANFE <chave>` / `DAMDFE <chave>` / `DANFE NFC-e <chave>`. */
+  /** <title> of the document; browsers use it as the default PDF file name. Defaults to the document name and access key. */
   title?: string
   /**
    * Authorization protocol to print when the XML has no <protNFe> / <protMDFe> (e.g. EPEC, 3.9.3).
@@ -27,4 +34,6 @@ export interface DanfeOptions {
   protocol?: { nProt: string; dateTime: string }
   /** DANFE NFC-e (modelo 65) settings; ignored for the other documents. */
   nfce?: NfceOptions
+  /** National DANFSe settings. */
+  nfse?: NfseOptions
 }

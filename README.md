@@ -1,27 +1,30 @@
 # browser-danfe-gen
 
-Generate an NF-e **DANFE** (modelo 55), an NFC-e **DANFE NFC-e** (modelo 65) or an MDF-e **DAMDFE** (modelo 58)
+Generate an NF-e **DANFE** (modelo 55), an NFC-e **DANFE NFC-e** (modelo 65), an MDF-e **DAMDFE** (modelo 58),
+or a national NFS-e **DANFSe**
 as a self-contained HTML string, entirely in the browser. Open the result with the browser's print dialog and you get
 a DANFE laid out according to **MOC 7.0 – Anexo II** (Manual de Especificações Técnicas do DANFE e Código de Barras),
 a DANFE NFC-e laid out according to the **Manual de Padrões Técnicos do DANFE NFC-e e QR Code 5.1**, or a DAMDFE laid
-out according to **MOC MDF-e 3.00b – Anexo II** (Manual de Especificações Técnicas do DAMDFE).
+out according to **MOC MDF-e 3.00b – Anexo II** (Manual de Especificações Técnicas do DAMDFE). The national
+DANFSe uses the v2.0 layout from **SE/CGNFS-e Nota Técnica 008 v1.02**.
 
 ```ts
 import { generateDanfeHtml, printDanfe } from 'browser-danfe-gen'
 
-const html = generateDanfeHtml(xmlString)   // NF-e -> DANFE, NFC-e -> DANFE NFC-e, MDF-e -> DAMDFE;
+const html = generateDanfeHtml(xmlString)   // NF-e, NFC-e, MDF-e and national NFS-e
                                             // full <html> document, inline CSS + inline SVG barcode / QR Code
 printDanfe(html)                            // hidden iframe + window.print()
 // or: iframe.srcdoc = html / window.open + document.write / Blob URL
 ```
 
 * Input: `<nfeProc>` (authorized, with `protNFe`) or a bare `<NFe>` for the DANFE and the DANFE NFC-e (told apart
-  by `ide/mod`: 65 is an NFC-e); `<mdfeProc>` (with `protMDFe`) or a bare `<MDFe>` for the DAMDFE. The document
+  by `ide/mod`: 65 is an NFC-e); `<mdfeProc>` (with `protMDFe`) or a bare `<MDFe>` for the DAMDFE;
+  national `<NFSe>` with an embedded `DPS` for the DANFSe. The document
   type is detected from the root element; anything else throws `DanfeError`. `generateDanfeNfceHtml`,
-  `generateDamdfeHtml` / `parseMdfe` are also exported for callers that want to be explicit.
-* Output: one `<section class="page">` per A4 sheet (`@page { size: 21cm 29.7cm; margin: 0 }`) for the DANFE and
-  the DAMDFE, or a single receipt sheet as tall as its content for the DANFE NFC-e; no scripts and no external
-  requests. The `<title>` is `DANFE <chave>` / `DANFE NFC-e <chave>` / `DAMDFE <chave>`, which browsers use as the
+  `generateDamdfeHtml`, `generateDanfseHtml`, `parseMdfe` and `parseNfse` are also exported.
+* Output: one `<section class="page">` per A4 sheet for the DANFE, DAMDFE and DANFSe, or a single receipt sheet
+  as tall as its content for the DANFE NFC-e. The HTML has no scripts or external requests.
+  The `<title>` contains the document name and access key, which browsers use as the
   default PDF file name.
 * Requires a `DOMParser` (any browser; under Node/Bun use `happy-dom` or similar).
 
@@ -36,6 +39,8 @@ printDanfe(html)                            // hidden iframe + window.print()
 | `nfce.paperWidthMm` | DANFE NFC-e paper roll width, 56–210 mm (default 80)                                |
 | `nfce.resumido`     | DANFE NFC-e resumido (ecológico): no item detail                                    |
 | `nfce.via`          | `'consumidor'` (default) or `'estabelecimento'`: the copy of a pending contingency NFC-e |
+| `nfse.canhoto`      | Include the optional DANFSe receipt (default false) |
+| `nfse.situacao`     | `'cancelada'` or `'substituida'`, from the caller's NFS-e event data, to print the corresponding watermark |
 
 ### Printing
 
@@ -114,6 +119,20 @@ sections flow top to bottom (side by side in pairs, as in the samples) and every
 The aggregated documents are listed only in contingência, as in the samples. When the XML has no `qrCodMDFe` the
 QR URL is built from the chave and `tpAmb` for normal emission; in contingência it needs the signed parameter
 from the XML, so it is omitted.
+
+## DANFSe (NFS-e Padrão Nacional)
+
+The DANFSe prints on a single A4 portrait sheet with the national logo and the access key in one block.
+The QR code encodes the public consultation URL specified by NT 008. The renderer includes the service,
+parties, ISSQN, federal withholdings, IBS/CBS, totals and complementary information. It uses the
+official Anexo A municipality table for city names and UFs and the DANFSe fonts with system fallbacks.
+Long descriptions use an ellipsis where space runs out. Use the browser's print dialog to save as PDF.
+
+Pass the issued national `NFSe` XML, whose namespace is `http://www.sped.fazenda.gov.br/nfse`.
+Rendering uses the XML and optional event status supplied by the caller. XML signatures and fiscal
+status are outside the renderer's validation scope. The DANFSe uses its own logo and font settings.
+
+[NT 008 v1.02, Anexo I](https://www.gov.br/nfse/pt-br/biblioteca/documentacao-tecnica/rtc/nt-008-se-cgnfse-danfse-20260714-v1-02.pdf) · [Production XML and domain tables](https://www.gov.br/nfse/pt-br/biblioteca/documentacao-tecnica/documentacao-atual)
 
 ## Deliberate choices where the spec leaves room
 

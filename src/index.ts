@@ -3,17 +3,22 @@ import { DanfeError } from './errors'
 import { parseMdfe, parseMdfeDocument } from './mdfe/parse'
 import { renderDamdfe } from './mdfe/render'
 import { renderDanfeNfce } from './nfce/render'
+import { parseNfse, parseNfseDocument } from './nfse/parse'
+import { renderDanfse } from './nfse/render'
 import { renderDocument } from './render/document'
 import type { DanfeOptions } from './options'
 
 /**
  * Generate a self-contained, print-ready document from an XML string: the DANFE (A4 portrait) for an
  * NF-e, the DANFE NFC-e (receipt roll) for an NFC-e (both `nfeProc`/`NFe`, told apart by `mod`) or the
- * DAMDFE (A4 portrait) for an MDF-e (`mdfeProc`/`MDFe`).
+ * DAMDFE (A4 portrait) for an MDF-e (`mdfeProc`/`MDFe`), or the DANFSe (A4 portrait) for a national
+ * NFS-e (`NFSe`).
  */
 export function generateDanfeHtml(xml: string, options: DanfeOptions = {}): string {
   const doc = parseXml(xml)
   switch (doc.documentElement.localName) {
+    case 'NFSe':
+      return renderDanfse(parseNfseDocument(doc), options)
     case 'mdfeProc':
     case 'MDFe':
       return renderDamdfe(parseMdfeDocument(doc), options)
@@ -25,9 +30,14 @@ export function generateDanfeHtml(xml: string, options: DanfeOptions = {}): stri
     default:
       throw new DanfeError(
         'unsupported-document',
-        `Expected an NF-e (nfeProc/NFe) or MDF-e (mdfeProc/MDFe), got <${doc.documentElement.localName}>`,
+        `Expected an NF-e (nfeProc/NFe), MDF-e (mdfeProc/MDFe) or national NFS-e (NFSe), got <${doc.documentElement.localName}>`,
       )
   }
+}
+
+/** Generate the DANFSe from a national `NFSe` XML string. */
+export function generateDanfseHtml(xml: string, options: DanfeOptions = {}): string {
+  return renderDanfse(parseNfse(xml), options)
 }
 
 /** Generate the DAMDFE (MDF-e, modelo 58) from an `mdfeProc` or `MDFe` XML string. */
@@ -43,8 +53,10 @@ export function generateDanfeNfceHtml(xml: string, options: DanfeOptions = {}): 
 export { printDanfe } from './print'
 export { DanfeError } from './errors'
 export type { DanfeErrorCode } from './errors'
-export type { DanfeOptions, NfceOptions } from './options'
+export type { DanfeOptions, NfceOptions, NfseOptions } from './options'
 export type { Nfe } from './model'
 export type { Mdfe } from './mdfe/model'
+export type { Nfse } from './nfse/parse'
 export { parseNfe } from './parse'
 export { parseMdfe } from './mdfe/parse'
+export { parseNfse } from './nfse/parse'
