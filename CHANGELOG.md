@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-19
+
+### Added
+
+- National NFS-e support with automatic detection, `generateDanfseHtml`, and `parseNfse`.
+- Single-page A4 DANFSe v2.0 with the public consultation QR code, ISSQN and IBS/CBS details, and
+  options for a receipt and cancellation or substitution watermarks.
+
+### Fixed
+
+- NFC-e now preserves full unit prices, keeps the consumer distinct from the delivery recipient,
+  and prints the authorization timestamp in the emitter's local time.
+
 ## [0.3.0] - 2026-11-05
 
 ### Added

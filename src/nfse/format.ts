@@ -22,22 +22,26 @@ export function localidade(codigo: string, nome = '', uf = ''): string {
 const br = new Intl.NumberFormat('pt-BR')
 
 function cents(value: string): bigint | undefined {
-  if (!/^\d+(\.\d{1,2})?$/.test(value)) return undefined
-  const [whole, fractional = ''] = value.split('.') as [string, string?]
-  return BigInt(whole) * 100n + BigInt(fractional.padEnd(2, '0'))
+  if (!/^-?\d+(\.\d{1,2})?$/.test(value)) return undefined
+  const [whole, fractional = ''] = value.replace(/^-/, '').split('.') as [string, string?]
+  const amount = BigInt(whole) * 100n + BigInt(fractional.padEnd(2, '0'))
+  return value.startsWith('-') ? -amount : amount
 }
 
 function formatCents(value: bigint): string {
-  return `${br.format(value / 100n)},${String(value % 100n).padStart(2, '0')}`
+  const amount = value < 0n ? -value : value
+  return `R$ ${value < 0n ? '-' : ''}${br.format(amount / 100n)},${String(amount % 100n).padStart(2, '0')}`
 }
 
 export function money(value: string): string {
   const amount = cents(value)
-  return amount === undefined ? value : `R$ ${formatCents(amount)}`
+  return amount === undefined ? value : formatCents(amount)
 }
 
 export function sumMoney(...values: string[]): string {
   const amounts = values.filter(Boolean).map(cents)
   if (!amounts.length || amounts.some((amount) => amount === undefined)) return ''
-  return `R$ ${formatCents(amounts.reduce<bigint>((sum, amount) => sum + (amount ?? 0n), 0n))}`
+  return formatCents(amounts.reduce<bigint>((sum, amount) => sum + (amount ?? 0n), 0n))
 }
+
+export const negate = (value: string): string => value.startsWith('-') ? value.slice(1) : value && `-${value}`

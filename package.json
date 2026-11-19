@@ -1,6 +1,6 @@
 {
   "name": "browser-danfe-gen",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Generate NF-e DANFE, NFC-e DANFE, MDF-e DAMDFE and national NFS-e DANFSe as printable HTML in the browser.",
   "keywords": [
     "danfe",

@@ -132,6 +132,11 @@ Pass the issued national `NFSe` XML, whose namespace is `http://www.sped.fazenda
 Rendering uses the XML and optional event status supplied by the caller. XML signatures and fiscal
 status are outside the renderer's validation scope. The DANFSe uses its own logo and font settings.
 
+The federal tax block follows NT 008 v1.02 §2.4.5. Only retention code `1` moves PIS and COFINS
+into the retained social contributions total. For ISSQN deductions, NT 008 uses the declared deduction
+or the legacy calculation with reimbursements. When NT 009 ISSQN adjustment fields are present,
+the total uses those ISSQN-specific values.
+
 [NT 008 v1.02, Anexo I](https://www.gov.br/nfse/pt-br/biblioteca/documentacao-tecnica/rtc/nt-008-se-cgnfse-danfse-20260714-v1-02.pdf) · [Production XML and domain tables](https://www.gov.br/nfse/pt-br/biblioteca/documentacao-tecnica/documentacao-atual)
 
 ## Deliberate choices where the spec leaves room
@@ -157,10 +162,12 @@ bun run dev         # playground: pick an XML, preview, print
 bun scripts/verify.ts test/fixtures/HR_ACO.xml [--items 120] [--infcpl 60]
 bun scripts/verify.ts test/fixtures/MDFE_RODO_CONT.xml [--items 120] [--infcpl 60]   # DAMDFE
 bun scripts/verify.ts test/fixtures/NFCE.xml [--items 120] [--width 58] [--resumido]  # DANFE NFC-e
+bun scripts/verify.ts test/fixtures/NFSE.xml
 ```
 
 `scripts/verify.ts` needs Chrome, `pdfinfo`/`pdftoppm` (poppler) and `zbarimg`. It renders the HTML in headless
 Chrome and checks that every box lands where the spec table says, that no text is clipped or overflowing, that the
 PDF is A4 with the expected number of sheets, and that the printed barcode (and, for a DAMDFE, the QR Code)
 decodes back to the chave (to `qrCodMDFe`). For a DANFE NFC-e it checks that the receipt is one sheet with nothing
-clipped and that the QR Code decodes back to `qrCode`.
+clipped and that the QR Code decodes back to `qrCode`. For a DANFSe it checks the single A4 sheet and
+decodes the QR Code to the public consultation URL.

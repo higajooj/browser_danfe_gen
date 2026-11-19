@@ -1,8 +1,8 @@
 import { esc } from '../escape'
-import { formatDecimal, maskCep, maskCnpj, maskCpf, maskFone, splitDateTime } from '../format'
+import { formatDecimal, maskCnpj, maskCpf, maskFone, splitDateTime } from '../format'
 import type { DanfeOptions } from '../options'
 import { qrSvg } from '../qrcode/qrcode'
-import { joined, localidade, money, slots, sumMoney } from './format'
+import { joined, localidade, money, negate, slots, sumMoney } from './format'
 import { nfseLogo } from './logo'
 import type { Nfse, NfseParty } from './parse'
 import { danfseCss } from './styles'
@@ -70,7 +70,7 @@ function partyRows(title: string, party: NfseParty, isRecipient = false): string
       field('Município / Sigla UF', end.xCidade
         ? joined(end.xCidade, end.xEstProvReg, end.cPais)
         : localidade(end.cMun, '', end.UF)),
-      field('Código IBGE / CEP', end.cEndPost || joined(end.cMun, maskCep(end.CEP))),
+      field('Código IBGE / CEP', end.cEndPost || joined(end.cMun, end.CEP.replace(/^(\d{2})(\d{3})(\d{3})$/, '$1.$2-$3'))),
     ),
     row(
       field('Endereço', [end.xLgr, end.nro, end.xCpl, end.xBairro].filter(Boolean).join(', '), 2),
@@ -88,6 +88,7 @@ function parties(nfse: Nfse): string {
         '1': 'Não Optante',
         '2': 'Optante – Microempreendedor Individual (MEI)',
         '3': 'Optante – Microempresa ou Empresa de Pequeno Porte (ME/EPP)',
+        '4': 'Optante Pendente',
       }), 2),
       field('Regime de Apuração Tributária pelo SN', codeLabel(regTrib.regApTribSN, {
         '1': 'Regime de apuração dos tributos federais e municipal pelo Simples Nacional',
@@ -115,8 +116,8 @@ function service({ serv }: Nfse): string {
   return block(
     row(
       heading('Serviço Prestado'),
-      field('Código de Tributação Nacional / Municipal', slots(serv.cTribNac, serv.cTribMun)),
-      field('Código da NBS', serv.cNBS),
+      field('Código de Tributação Nacional / Municipal', slots(serv.cTribNac.replace(/^(\d{2})(\d{2})(\d{2})$/, '$1.$2.$3'), serv.cTribMun)),
+      field('Código da NBS', serv.cNBS.replace(/^(\d)(\d{4})(\d{2})(\d{2})$/, '$1.$2.$3.$4')),
       field('Local da Prestação / Sigla UF / País', joined(place, serv.cPaisPrestacao || (/^[1-5]\d{6}$/.test(serv.cLocPrestacao) ? 'BR' : ''))),
     ),
     `<div class="service-code value">${esc(serv.xTribMun || serv.xTribNac || '-')}</div>
@@ -207,7 +208,7 @@ function ibsCbs({ ibsCbs: i, totals, issqn, federal: f, ide }: Nfse): string {
     row(
       field('Exclusões e Reduções da Base de Cálculo', i.vBC ? sumMoney(
         totals.vDescIncond, i.vCalcAjusteBCIBSCBS || i.vCalcAjusteBCLocImoveis || i.vCalcReeRepRes,
-        issqn.vISSQN, before2027 ? f.vPis : '', before2027 ? f.vCofins : '',
+        issqn.vISSQN, before2027 ? f.vPis : '', before2027 ? f.vCofins : '', negate(i.vAjusteBCIBSCBSComExt),
       ) : ''),
       field('Base de Cálculo Após Exclusões e Reduções', money(i.vBC)),
       field('Red. Alíquota IBS / Red. Alíquota CBS', slots(pct(i.pRedAliqUF), pct(i.pRedAliqMun), pct(i.pRedAliqCBS))),
@@ -261,7 +262,7 @@ function complement({ complement: c }: Nfse): string {
   if (c.pTotTribSN) approx.push(`Simples Nacional: ${pct(c.pTotTribSN)}`)
   return `<section class="block complement">${heading('Informações Complementares')}<div class="field">
   <div class="long-text complement-text">${esc(info || '-')}</div>
-  <div class="approx">Totais Aproximados dos Tributos cfe. Lei nº 12.741/2012: ${esc(approx.join(' | '))}</div>
+  <div class="approx">Totais Aproximados dos Tributos cfe. Lei nº 12.741/2012: ${esc(approx.join('; '))}</div>
 </div></section>`
 }
 

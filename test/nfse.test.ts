@@ -53,8 +53,32 @@ describe('national NFS-e', () => {
     expect(value(doc, 'Total do IBS/CBS')).toBe('R$ 9,40')
     expect(value(doc, 'Valor Líquido da NFS-e + IBS/CBS')).toBe('R$ 1.009,40')
     expect(doc.querySelector('.complement-text')?.textContent).toContain('Núm. Ped.: 42 | Item Ped.: 1, 2')
-    expect(doc.querySelector('.approx')?.textContent).toContain('Federais: 11,00% | Estaduais: 0,00% | Municipais: 5,00%')
+    expect(doc.querySelector('.approx')?.textContent).toContain('Federais: 11,00%; Estaduais: 0,00%; Municipais: 5,00%')
+    expect(value(doc, 'Código IBGE / CEP')).toBe('5002704 / 79.002-000')
+    expect(value(doc, 'Código de Tributação Nacional / Municipal')).toBe('01.06.01 / 001')
+    expect(value(doc, 'Código da NBS')).toBe('1.1502.10.00')
   })
+
+  it('retains municipal notes from v1.00 and prints every NT 009 property registration', () => {
+    const legacy = xml.replaceAll('versao="1.01"', 'versao="1.00"')
+      .replace(/<\/valores>\s*(<xOutInf>.*?<\/xOutInf>)/, '$1</valores>')
+    expect(document(legacy).querySelector('.complement-text')?.textContent)
+      .toContain('Inf. A. T. Mun.: Informação da administração municipal.')
+
+    const updated = xml.replace('</dest>', '</dest><imovel><gUnidImob><inscImobFisc>IMOB-777</inscImobFisc></gUnidImob><gUnidImob><inscImobFisc>IMOB-888</inscImobFisc></gUnidImob></imovel>')
+      .replace('<opSimpNac>1</opSimpNac>', '<opSimpNac>4</opSimpNac>')
+    const doc = document(updated)
+    expect(doc.querySelector('.complement-text')?.textContent).toContain('Insc. Imob.: IMOB-777, IMOB-888')
+    expect(value(doc, 'Simples Nacional na Data de Competência')).toBe('Optante Pendente')
+  })
+
+  it.each([['-12.34', 'R$ 72,34'], ['60.05', 'R$ -0,05']])(
+    'subtracts the NT 009 foreign-trade base adjustment %s from the exclusions',
+    (amount, expected) => {
+      const updated = xml.replace('</vServPrest>', `</vServPrest><vAjusteBC><vAjusteBCIBSCBSComExt>${amount}</vAjusteBCIBSCBSComExt></vAjusteBC>`)
+      expect(value(document(updated), 'Exclusões e Reduções da Base de Cálculo')).toBe(expected)
+    },
+  )
 
   it('understands the NT 009 locations for the purpose, recipient and tax classification', () => {
     const updated = xml

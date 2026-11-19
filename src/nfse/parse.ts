@@ -54,14 +54,16 @@ function parseIbsCbs(inf: Element, dpsIbs: El) {
 function parseComplement(inf: Element, dps: Element, serv: El, dpsIbs: El, trib: El) {
   const info = kid(serv, 'infoCompl')
   const approx = kid(trib, 'totTrib')
+  const imovel = kid(dpsIbs, 'imovel')
+  const inscricoes = kids(imovel, 'gUnidImob').map((unit) => txt(unit, 'inscImobFisc')).filter(Boolean)
   return {
     ...fields(info, 'xInfComp', 'docRef', 'idDocTec', 'xPed'),
     chSubstda: txt(dps, 'subst', 'chSubstda'),
     cObra: txt(serv, 'obra', 'cObra'),
-    inscImobFisc: txt(dpsIbs, 'imovel', 'inscImobFisc') || txt(serv, 'obra', 'inscImobFisc'),
+    inscImobFisc: inscricoes.join(', ') || txt(imovel, 'inscImobFisc') || txt(serv, 'obra', 'inscImobFisc'),
     idAtvEvt: txt(serv, 'atvEvento', 'idAtvEvt'),
     xItemPed: kids(kid(info, 'gItemPed'), 'xItemPed').map((item) => item.textContent?.trim() ?? ''),
-    xOutInf: txt(inf, 'xOutInf'),
+    xOutInf: txt(inf, 'xOutInf') || txt(inf, 'valores', 'xOutInf'),
     ...fields(kid(approx, 'vTotTrib'), 'vTotTribFed', 'vTotTribEst', 'vTotTribMun'),
     ...fields(kid(approx, 'pTotTrib'), 'pTotTribFed', 'pTotTribEst', 'pTotTribMun'),
     ...fields(approx, 'pTotTribSN'),
@@ -128,7 +130,10 @@ export function parseNfseDocument(doc: Document) {
       ...fields(fed, 'vRetIRRF', 'vRetCP', 'vRetCSLL'),
       ...fields(kid(fed, 'piscofins'), 'tpRetPisCofins', 'vPis', 'vCofins'),
     },
-    ibsCbs: parseIbsCbs(inf, dpsIbs),
+    ibsCbs: {
+      ...parseIbsCbs(inf, dpsIbs),
+      vAjusteBCIBSCBSComExt: txt(dpsValues, 'vAjusteBC', 'vAjusteBCIBSCBSComExt'),
+    },
     totals: {
       ...fields(values, 'vTotalRet', 'vLiq'),
       ...fields(kid(dpsValues, 'vDescCondIncond'), 'vDescIncond', 'vDescCond'),

@@ -1,6 +1,4 @@
 // Real-browser verification (dev only): geometry vs spec table, text overflow, page count, barcode decode.
-// Works for a DANFE (NF-e), a DAMDFE (MDF-e; --items repeats the first <infCTe>, the QR Code is decoded too)
-// and a DANFE NFC-e (one receipt sheet as tall as the content; the QR Code must decode to infNFeSupl/qrCode).
 //   bun scripts/verify.ts <file.xml> [--items N] [--infcpl N] [--width MM] [--resumido]
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs'
 import { execFileSync, spawnSync } from 'node:child_process'
@@ -8,7 +6,7 @@ import { basename, resolve } from 'node:path'
 import { Window } from 'happy-dom'
 
 ;(globalThis as any).DOMParser = new Window().DOMParser
-const { generateDanfeHtml } = await import('../src/index')
+const { generateDanfeHtml, parseNfse } = await import('../src/index')
 
 const args = process.argv.slice(2)
 const file = args[0]
@@ -17,10 +15,13 @@ const opt = (n: string) => Number(args[args.indexOf(n) + 1] ?? 0) || 0
 let xml = readFileSync(file!, 'utf8')
 const isMdfe = /<(mdfeProc|MDFe)[\s>]/.test(xml)
 const isNfce = /<mod>65<\/mod>/.test(xml)
+const isNfse = new DOMParser().parseFromString(xml, 'application/xml').documentElement?.localName === 'NFSe'
 const width = opt('--width')
 const resumido = args.includes('--resumido')
 const items = opt('--items')
-if (items && isMdfe) {
+if (items && isNfse) {
+  throw new Error('--items does not apply to the DANFSe')
+} else if (items && isMdfe) {
   const m = /<infCTe>[\s\S]*?<\/infCTe>/.exec(xml)![0]
   xml = xml.replace(m, m.repeat(items))
 } else if (items) {
@@ -30,7 +31,8 @@ if (items && isMdfe) {
 const infN = opt('--infcpl')
 if (infN) {
   const long = Array.from({ length: infN }, (_, i) => `LINHA ${i + 1} DE INFORMACOES COMPLEMENTARES`).join('|')
-  xml = xml.replace(/<infCpl>[\s\S]*?<\/infCpl>/, `<infCpl>${long}</infCpl>`)
+  const tag = isNfse ? 'xInfComp' : 'infCpl'
+  xml = xml.replace(new RegExp(`<${tag}>[\\s\\S]*?</${tag}>`), `<${tag}>${long}</${tag}>`)
 }
 
 const tag = `${basename(file!, '.xml')}${items ? `-i${items}` : ''}${infN ? `-c${infN}` : ''}${width ? `-w${width}` : ''}${resumido ? '-r' : ''}`
@@ -105,17 +107,18 @@ const htmlPages = (html.match(/<section class="page">/g) ?? []).length
 spawnSync('pdftoppm', ['-r', '300', '-f', '1', '-l', '1', '-png', pdf, `out/${tag}`])
 const png = execFileSync('sh', ['-c', `ls out/${tag}-*.png | head -1`], { encoding: 'utf8' }).trim()
 const z = spawnSync('zbarimg', ['-q', '--raw', png], { encoding: 'utf8' })
-const chave = /Id="(?:NFe|MDFe)([0-9A-Z]{44})"/.exec(xml)![1]!
-// DAMDFE / DANFE NFC-e: the QR Code on the first sheet must decode to the qrCodMDFe / qrCode of the XML.
+const chave = isNfse ? parseNfse(xml).chave : /Id="(?:NFe|MDFe)([0-9A-Z]{44})"/.exec(xml)![1]!
 const qrTag = isMdfe ? 'qrCodMDFe' : isNfce ? 'qrCode' : ''
-const qr = qrTag ? (new DOMParser().parseFromString(xml, 'text/xml').getElementsByTagName(qrTag)[0]?.textContent?.trim() ?? undefined) : undefined
+const qr = isNfse
+  ? `https://www.nfse.gov.br/ConsultaPublica/?tpc=1&chave=${chave}`
+  : qrTag ? new DOMParser().parseFromString(xml, 'text/xml').getElementsByTagName(qrTag)[0]?.textContent?.trim() : undefined
 const qrOk = qr === undefined || z.stdout.trim().split('\n').includes(qr)
-// The DANFE NFC-e has no barcode of the chave: the QR Code is the only symbol.
-const barcodeOk = isNfce || z.stdout.trim().split('\n').includes(chave)
+const barcodeOk = isNfce || isNfse || z.stdout.trim().split('\n').includes(chave)
+const pageOk = isNfse ? htmlPages === 1 && pages === 1 && size?.includes('(A4)') : pages === htmlPages
 
 console.log(JSON.stringify({ tag, htmlPages, pdfPages: pages, size, stat: res.stat, decoded: z.stdout.trim(), decodedOk: barcodeOk, qrOk }, null, 1))
 if (res.problems.length) {
   console.log(`PROBLEMS (${res.problems.length}):`)
   for (const p of res.problems.slice(0, 40)) console.log(' -', p)
 }
-process.exit(res.problems.length || pages !== htmlPages || !barcodeOk || !qrOk ? 1 : 0)
+process.exit(res.problems.length || !pageOk || !barcodeOk || !qrOk ? 1 : 0)

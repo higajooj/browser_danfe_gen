@@ -34,6 +34,5 @@ export interface DanfeOptions {
   protocol?: { nProt: string; dateTime: string }
   /** DANFE NFC-e (modelo 65) settings; ignored for the other documents. */
   nfce?: NfceOptions
-  /** National DANFSe settings. */
   nfse?: NfseOptions
 }
