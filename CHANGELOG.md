@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-24
+
+### Added
+
+- CT-e (modelo 57 and CT-e Simplificado) DACTE and CT-e OS (modelo 67) DACTE OS support according to
+  MOC CT-e 4.00 – Anexo II, auto-detected by `generateDanfeHtml` and exported as `generateDacteHtml`
+  and `parseCte`.
+- Support for all six cargo modals (rodoviário, aéreo, aquaviário, ferroviário, dutoviário, multimodal)
+  plus `rodoOS`, FS-DA contingency with the 36-character additional barcode, QR Code, homologação
+  notices, special cases (`veicNovos`, `peri`, `detCont`), multi-page pagination and optional canhoto
+  (`cte.canhoto`).
+
 ## [0.4.0] - 2026-11-19
 
 ### Added

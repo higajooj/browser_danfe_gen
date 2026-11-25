@@ -13,6 +13,7 @@ const file = args[0]
 if (!file) throw new Error('usage: bun scripts/verify.ts <file.xml> [--items N] [--infcpl N] [--width MM] [--resumido]')
 const opt = (n: string) => Number(args[args.indexOf(n) + 1] ?? 0) || 0
 let xml = readFileSync(file!, 'utf8')
+const isCte = /<(cteProc|CTe|cteOSProc|CTeOS|cteSimpProc|CTeSimp)[\s>]/.test(xml)
 const isMdfe = /<(mdfeProc|MDFe)[\s>]/.test(xml)
 const isNfce = /<mod>65<\/mod>/.test(xml)
 const isNfse = new DOMParser().parseFromString(xml, 'application/xml').documentElement?.localName === 'NFSe'
@@ -21,6 +22,9 @@ const resumido = args.includes('--resumido')
 const items = opt('--items')
 if (items && isNfse) {
   throw new Error('--items does not apply to the DANFSe')
+} else if (items && isCte) {
+  const m = /<infNFe>[\s\S]*?<\/infNFe>/.exec(xml)![0]
+  xml = xml.replace(m, m.repeat(items))
 } else if (items && isMdfe) {
   const m = /<infCTe>[\s\S]*?<\/infCTe>/.exec(xml)![0]
   xml = xml.replace(m, m.repeat(items))
@@ -31,7 +35,7 @@ if (items && isNfse) {
 const infN = opt('--infcpl')
 if (infN) {
   const long = Array.from({ length: infN }, (_, i) => `LINHA ${i + 1} DE INFORMACOES COMPLEMENTARES`).join('|')
-  const tag = isNfse ? 'xInfComp' : 'infCpl'
+  const tag = isNfse ? 'xInfComp' : isCte ? 'xObs' : 'infCpl'
   xml = xml.replace(new RegExp(`<${tag}>[\\s\\S]*?</${tag}>`), `<${tag}>${long}</${tag}>`)
 }
 
@@ -64,7 +68,7 @@ addEventListener('load', () => {
       if (el.scrollHeight > el.clientHeight + 1 || el.scrollWidth > el.clientWidth + 1)
         problems.push('overflow p' + (pi + 1) + ' ' + el.className + ' "' + el.textContent.trim().slice(0, 40) + '" ' + el.scrollWidth + 'x' + el.scrollHeight + ' in ' + el.clientWidth + 'x' + el.clientHeight)
     })
-    page.querySelectorAll('.v, .l, .row > div, .qh > div, .emit .txt, .msg, .td, .th, .ln, .ln > span').forEach((el) => {
+    page.querySelectorAll('.v, .l, .row > div, .qh > div, .emit .txt, .ct-emit .txt, .msg, .ct-msg, .td, .ct-td, .th, .ct-th, .ct-kv .val, .ln, .ln > span').forEach((el) => {
       if (el.scrollWidth > el.clientWidth + 1 || el.scrollHeight > el.clientHeight + 1)
         problems.push('clipped p' + (pi + 1) + ' "' + el.textContent.trim().slice(0, 40) + '" ' + el.scrollWidth + '>' + el.clientWidth)
     })
@@ -107,8 +111,8 @@ const htmlPages = (html.match(/<section class="page">/g) ?? []).length
 spawnSync('pdftoppm', ['-r', '300', '-f', '1', '-l', '1', '-png', pdf, `out/${tag}`])
 const png = execFileSync('sh', ['-c', `ls out/${tag}-*.png | head -1`], { encoding: 'utf8' }).trim()
 const z = spawnSync('zbarimg', ['-q', '--raw', png], { encoding: 'utf8' })
-const chave = isNfse ? parseNfse(xml).chave : /Id="(?:NFe|MDFe)([0-9A-Z]{44})"/.exec(xml)![1]!
-const qrTag = isMdfe ? 'qrCodMDFe' : isNfce ? 'qrCode' : ''
+const chave = isNfse ? parseNfse(xml).chave : /Id="(?:NFe|MDFe|CTe)([0-9A-Z]{44})"/.exec(xml)![1]!
+const qrTag = isCte ? 'qrCodCTe' : isMdfe ? 'qrCodMDFe' : isNfce ? 'qrCode' : ''
 const qr = isNfse
   ? `https://www.nfse.gov.br/ConsultaPublica/?tpc=1&chave=${chave}`
   : qrTag ? new DOMParser().parseFromString(xml, 'text/xml').getElementsByTagName(qrTag)[0]?.textContent?.trim() : undefined

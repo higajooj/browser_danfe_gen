@@ -1,28 +1,30 @@
 # browser-danfe-gen
 
-Generate an NF-e **DANFE** (modelo 55), an NFC-e **DANFE NFC-e** (modelo 65), an MDF-e **DAMDFE** (modelo 58),
+Generate an NF-e **DANFE** (modelo 55), an NFC-e **DANFE NFC-e** (modelo 65), a CT-e **DACTE** (modelo 57 / CT-e Simplificado) or **DACTE OS** (modelo 67), an MDF-e **DAMDFE** (modelo 58),
 or a national NFS-e **DANFSe**
 as a self-contained HTML string, entirely in the browser. Open the result with the browser's print dialog and you get
 a DANFE laid out according to **MOC 7.0 – Anexo II** (Manual de Especificações Técnicas do DANFE e Código de Barras),
-a DANFE NFC-e laid out according to the **Manual de Padrões Técnicos do DANFE NFC-e e QR Code 5.1**, or a DAMDFE laid
+a DANFE NFC-e laid out according to the **Manual de Padrões Técnicos do DANFE NFC-e e QR Code 5.1**, a DACTE / DACTE OS
+laid out according to **MOC CT-e 4.00 – Anexo II** (Manual de Especificações Técnicas do DACTE), or a DAMDFE laid
 out according to **MOC MDF-e 3.00b – Anexo II** (Manual de Especificações Técnicas do DAMDFE). The national
 DANFSe uses the v2.0 layout from **SE/CGNFS-e Nota Técnica 008 v1.02**.
 
 ```ts
 import { generateDanfeHtml, printDanfe } from 'browser-danfe-gen'
 
-const html = generateDanfeHtml(xmlString)   // NF-e, NFC-e, MDF-e and national NFS-e
+const html = generateDanfeHtml(xmlString)   // NF-e, NFC-e, CT-e / CT-e OS, MDF-e and national NFS-e
                                             // full <html> document, inline CSS + inline SVG barcode / QR Code
 printDanfe(html)                            // hidden iframe + window.print()
 // or: iframe.srcdoc = html / window.open + document.write / Blob URL
 ```
 
 * Input: `<nfeProc>` (authorized, with `protNFe`) or a bare `<NFe>` for the DANFE and the DANFE NFC-e (told apart
-  by `ide/mod`: 65 is an NFC-e); `<mdfeProc>` (with `protMDFe`) or a bare `<MDFe>` for the DAMDFE;
+  by `ide/mod`: 65 is an NFC-e); `<cteProc>` / `<CTe>`, `<cteOSProc>` / `<CTeOS>` or `<cteSimpProc>` / `<CTeSimp>` for
+  the DACTE and DACTE OS; `<mdfeProc>` (with `protMDFe`) or a bare `<MDFe>` for the DAMDFE;
   national `<NFSe>` with an embedded `DPS` for the DANFSe. The document
   type is detected from the root element; anything else throws `DanfeError`. `generateDanfeNfceHtml`,
-  `generateDamdfeHtml`, `generateDanfseHtml`, `parseMdfe` and `parseNfse` are also exported.
-* Output: one `<section class="page">` per A4 sheet for the DANFE, DAMDFE and DANFSe, or a single receipt sheet
+  `generateDacteHtml`, `generateDamdfeHtml`, `generateDanfseHtml`, `parseCte`, `parseMdfe` and `parseNfse` are also exported.
+* Output: one `<section class="page">` per A4 sheet for the DANFE, DACTE, DAMDFE and DANFSe, or a single receipt sheet
   as tall as its content for the DANFE NFC-e. The HTML has no scripts or external requests.
   The `<title>` contains the document name and access key, which browsers use as the
   default PDF file name.
@@ -35,7 +37,8 @@ printDanfe(html)                            // hidden iframe + window.print()
 | `logoDataUri`  | `data:image/…` logo shown in the emitente frame                                          |
 | `fontFamily`   | `'times'` (default) or `'courier'` – the two families allowed by 3.7                     |
 | `title`        | document title                                                                           |
-| `protocol`     | `{ nProt, dateTime }` printed when the XML has no `protNFe` / `protMDFe` (e.g. EPEC, 3.9.3) |
+| `protocol`     | `{ nProt, dateTime }` printed when the XML has no `protNFe` / `protCTe` / `protMDFe` (e.g. EPEC, 3.9.3) |
+| `cte.canhoto`       | Print the DACTE / DACTE OS receipt stub on sheet 1 (default true) |
 | `nfce.paperWidthMm` | DANFE NFC-e paper roll width, 56–210 mm (default 80)                                |
 | `nfce.resumido`     | DANFE NFC-e resumido (ecológico): no item detail                                    |
 | `nfce.via`          | `'consumidor'` (default) or `'estabelecimento'`: the copy of a pending contingency NFC-e |
@@ -97,6 +100,28 @@ contingency NFC-e has a protocol (in the XML or `options.protocol`) it is printe
 DAMDFE. The QR Code needs the CSC (version 2) or the emitter's signature (version 3 off-line), so it is never
 built here: an XML without `infNFeSupl/qrCode` is printed without one. A `|` in `infCpl`, `infAdFisco` or
 `xMsg` is a line break.
+
+## DACTE and DACTE OS (CT-e modelo 57 / Simplificado, CT-e OS modelo 67)
+
+Implemented from **MOC CT-e 4.00 – Anexo II** (Manual de Especificações Técnicas do DACTE), A4 portrait:
+
+* Canhoto on the first sheet (standard receipt stub, or the ANAC / Código Brasileiro de Aeronáutica stub for the aéreo
+  modal; optional via `cte.canhoto`).
+* Header repeated on every sheet (2.12): emitente (optional logo, address, CNPJ/CPF, IE), tipo do CT-e / serviço,
+  indicador e informação do CT-e globalizado, CFOP – natureza da operação, DACTE / DACTE OS title, modal, `FOLHA n/N`,
+  modelo / série / número / emissão / SUFRAMA, CODE-128C barcode of the chave (9 cm × 1.5 cm, module 0.03 cm, 2.17),
+  chave in 11 blocks of 4, QR Code of `qrCodCTe` (2.8 cm ≥ 2.5 cm minimum, EC level M, UTF-8, 2.18), and variable
+  campos 1/2 (normal, EPEC, or FS-DA with the 36-character "Dados do CT-e" barcode and numeric blocks, 2.19).
+* Parties: remetente, destinatário, conditional expedidor/recebedor (2.7: omitted when absent; tomador takes the empty
+  slot when only one is present) and tomador do serviço (resolved from `toma3` or `toma4`).
+* Carga (with TON → KG conversion per section 3), componentes do valor da prestação, ICMS (all groups: `ICMS00`,
+  `ICMS20`, `ICMS45`, `ICMS60`, `ICMS90`, `ICMSOutraUF`, `ICMSSN`, plus DIFAL and `infTribFed` for CT-e OS), documentos
+  originários (`infNFe`, `infNF`, `infOutros`, `infDCe`), documentos de transporte anterior, casos específicos (veículos
+  novos, artigos perigosos, container aquaviário), fluxo da carga, observações gerais, all six modal-specific blocks
+  (rodoviário, aéreo, aquaviário, ferroviário, dutoviário, multimodal) plus `rodoOS` and viagem insurance for CT-e OS,
+  and Uso Exclusivo do Emissor / Reservado ao Fisco.
+* Multi-page flow: long lists of documentos originários and observações flow across continuation sheets with repeated
+  headers and column headings. Homologação (`tpAmb=2`): MOC 2.20 notice and "SEM VALOR FISCAL" watermark.
 
 ## DAMDFE (MDF-e, modelo 58)
 
@@ -160,6 +185,7 @@ bun run typecheck
 bun run build       # vite lib build (ESM) + d.ts
 bun run dev         # playground: pick an XML, preview, print
 bun scripts/verify.ts test/fixtures/HR_ACO.xml [--items 120] [--infcpl 60]
+bun scripts/verify.ts test/fixtures/CTE_RODO.xml [--items 120] [--infcpl 60]         # DACTE
 bun scripts/verify.ts test/fixtures/MDFE_RODO_CONT.xml [--items 120] [--infcpl 60]   # DAMDFE
 bun scripts/verify.ts test/fixtures/NFCE.xml [--items 120] [--width 58] [--resumido]  # DANFE NFC-e
 bun scripts/verify.ts test/fixtures/NFSE.xml

@@ -20,19 +20,26 @@ export interface NfseOptions {
   situacao?: 'cancelada' | 'substituida'
 }
 
+export interface CteOptions {
+  /** Print the receipt stub (canhoto) at the top of the first DACTE / DACTE OS sheet (MOC 2.21.5). Default true. */
+  canhoto?: boolean
+}
+
 export interface DanfeOptions {
   /** `data:image/...` URI of the emitter logo (printed inside the emitente frame). */
   logoDataUri?: string
-  /** Spec allows Times New Roman or Courier New (DANFE 3.7); also applied to the DAMDFE and DANFE NFC-e. Default: 'times'. */
+  /** Spec allows Times New Roman or Courier New (DANFE 3.7); also applied to the DAMDFE, DACTE and DANFE NFC-e. Default: 'times'. */
   fontFamily?: 'times' | 'courier'
   /** <title> of the document; browsers use it as the default PDF file name. Defaults to the document name and access key. */
   title?: string
   /**
-   * Authorization protocol to print when the XML has no <protNFe> / <protMDFe> (e.g. EPEC, 3.9.3).
+   * Authorization protocol to print when the XML has no <protNFe> / <protMDFe> / <protCTe> (e.g. EPEC, 3.9.3).
    * `dateTime` is an ISO-like string such as "2021-01-14T16:18:40-04:00".
    */
   protocol?: { nProt: string; dateTime: string }
   /** DANFE NFC-e (modelo 65) settings; ignored for the other documents. */
   nfce?: NfceOptions
   nfse?: NfseOptions
+  /** DACTE / DACTE OS (CT-e modelo 57 / 67) settings; ignored for the other documents. */
+  cte?: CteOptions
 }
